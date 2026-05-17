@@ -28,31 +28,112 @@ import {
 import { useStore } from '../store/useStore.ts';
 import { format } from 'date-fns';
 
-const data = [
-  { name: 'Jan', revenue: 4000, expenses: 2400 },
-  { name: 'Feb', revenue: 3000, expenses: 1398 },
-  { name: 'Mar', revenue: 2000, expenses: 9800 },
-  { name: 'Apr', revenue: 2780, expenses: 3908 },
-  { name: 'May', revenue: 1890, expenses: 4800 },
-  { name: 'Jun', revenue: 2390, expenses: 3800 },
-  { name: 'Jul', revenue: 3490, expenses: 4300 },
-];
-
 export const Dashboard: React.FC = () => {
   const invoices = useStore((state) => state.invoices);
   const customers = useStore((state) => state.customers);
   
+  const chartData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const now = new Date();
+    const last6Months = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last6Months.push({
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        name: months[d.getMonth()],
+        revenue: 0,
+        count: 0
+      });
+    }
+
+    invoices.forEach(inv => {
+      const invDate = new Date(inv.date);
+      const dataPoint = last6Months.find(m => m.month === invDate.getMonth() && m.year === invDate.getFullYear());
+      if (dataPoint) {
+        dataPoint.revenue += parseFloat(String(inv.total)) || 0;
+        dataPoint.count += 1;
+      }
+    });
+
+    return last6Months;
+  }, [invoices]);
+
+  const insights = useMemo(() => {
+    const totalRevenue = invoices.reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
+    const paidRevenue = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
+    
+    const collectionRate = totalRevenue > 0 ? (paidRevenue / totalRevenue) * 100 : 0;
+    
+    // Customer Loyalty (Repeat customers)
+    const customerInvoicesCount: Record<string, number> = {};
+    invoices.forEach(inv => {
+      customerInvoicesCount[inv.customerId] = (customerInvoicesCount[inv.customerId] || 0) + 1;
+    });
+    const repeatCustomers = Object.values(customerInvoicesCount).filter(count => count > 1).length;
+    const loyaltyRate = customers.length > 0 ? (repeatCustomers / customers.length) * 100 : 0;
+
+    // Efficiency (Paid vs Pending ratio)
+    const paidCount = invoices.filter(i => i.status === 'paid').length;
+    const efficiencyRate = invoices.length > 0 ? (paidCount / invoices.length) * 100 : 0;
+
+    return {
+      collection: {
+        value: `${Math.round(collectionRate)}%`,
+        progress: collectionRate,
+        desc: collectionRate > 80 ? "Excellent cash flow this period." : "Follow up on pending payments."
+      },
+      loyalty: {
+        value: `${Math.round(loyaltyRate)}%`,
+        progress: loyaltyRate,
+        desc: `${repeatCustomers} repeat customers out of ${customers.length} total.`
+      },
+      efficiency: {
+        value: `${Math.round(efficiencyRate)}%`,
+        progress: efficiencyRate,
+        desc: `${paidCount} invoices cleared of ${invoices.length} total.`
+      }
+    };
+  }, [invoices, customers]);
+
   const stats = useMemo(() => {
     const total = invoices.reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
     const pending = invoices.filter(i => i.status === 'pending').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
     const paid = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
     const overdue = invoices.filter(i => i.status === 'overdue').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
     
+    // Previous month comparison (simple)
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    const currentMonthRevenue = invoices
+      .filter(inv => {
+        const d = new Date(inv.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((acc, inv) => acc + inv.total, 0);
+
+    const prevMonthRevenue = invoices
+      .filter(inv => {
+        const d = new Date(inv.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      })
+      .reduce((acc, inv) => acc + inv.total, 0);
+
+    const revenueGrowth = prevMonthRevenue > 0 
+      ? ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 
+      : 0;
+    
     return {
       total: isNaN(total) ? 0 : total,
       pending: isNaN(pending) ? 0 : pending,
       paid: isNaN(paid) ? 0 : paid,
       overdue: isNaN(overdue) ? 0 : overdue,
+      revenueGrowth: revenueGrowth.toFixed(1),
       count: invoices.length,
       customerCount: customers.length
     };
@@ -83,28 +164,28 @@ export const Dashboard: React.FC = () => {
         <StatCard 
           title="Total Revenue" 
           value={`$${stats.total.toLocaleString()}`} 
-          trend="+12.5%" 
-          isPositive={true} 
+          trend={`${stats.revenueGrowth}%`} 
+          isPositive={parseFloat(stats.revenueGrowth) >= 0} 
           icon={<DollarSign className="text-primary" />} 
         />
         <StatCard 
           title="Pending Payments" 
           value={`$${stats.pending.toLocaleString()}`} 
-          trend="-2.4%" 
-          isPositive={false} 
+          trend="In Focus" 
+          isPositive={true} 
           icon={<Clock className="text-yellow-500" />} 
         />
         <StatCard 
           title="Successfully Paid" 
           value={`$${stats.paid.toLocaleString()}`} 
-          trend="+8.2%" 
+          trend="Keep going" 
           isPositive={true} 
           icon={<CheckCircle2 className="text-green-500" />} 
         />
         <StatCard 
           title="Overdue Balance" 
           value={`$${stats.overdue.toLocaleString()}`} 
-          trend="+4.1%" 
+          trend="Critical" 
           isPositive={false} 
           icon={<AlertCircle className="text-red-500" />} 
         />
@@ -124,7 +205,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FF4444" stopOpacity={0.3}/>
@@ -135,14 +216,14 @@ export const Dashboard: React.FC = () => {
                 <XAxis 
                   dataKey="name" 
                   stroke="#8E9299" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                   dy={10}
                 />
                 <YAxis 
                   stroke="#8E9299" 
-                  fontSize={12} 
+                  fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
                   tickFormatter={(value) => `$${value}`}
@@ -150,6 +231,7 @@ export const Dashboard: React.FC = () => {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#141414', border: '1px solid #ffffff10', borderRadius: '12px' }}
                   itemStyle={{ color: '#fff' }}
+                  formatter={(value) => [`$${parseFloat(value as string).toLocaleString()}`, 'Revenue']}
                 />
                 <Area 
                   type="monotone" 
@@ -158,6 +240,7 @@ export const Dashboard: React.FC = () => {
                   strokeWidth={3} 
                   fillOpacity={1} 
                   fill="url(#colorRev)" 
+                  animationDuration={1500}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -172,24 +255,24 @@ export const Dashboard: React.FC = () => {
           <div className="space-y-6">
             <InsightItem 
               label="Collection Rate" 
-              value="94%" 
-              progress={94} 
+              value={insights.collection.value} 
+              progress={insights.collection.progress} 
               color="bg-primary" 
-              desc="You're collecting 12% faster than last month."
+              desc={insights.collection.desc}
             />
             <InsightItem 
-              label="Customer Retention" 
-              value="82%" 
-              progress={82} 
+              label="Customer Loyalty" 
+              value={insights.loyalty.value} 
+              progress={insights.loyalty.progress} 
               color="bg-green-500" 
-              desc="4 new repeat customers added this week."
+              desc={insights.loyalty.desc}
             />
             <InsightItem 
-              label="Invoice Efficiency" 
-              value="65%" 
-              progress={65} 
+              label="Paid Efficiency" 
+              value={insights.efficiency.value} 
+              progress={insights.efficiency.progress} 
               color="bg-blue-500" 
-              desc="Average payment time: 4.2 days."
+              desc={insights.efficiency.desc}
             />
             
             <div className="pt-6 border-t border-white/5">
