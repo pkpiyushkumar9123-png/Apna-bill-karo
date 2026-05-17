@@ -4,7 +4,6 @@ import { useStore } from './store/useStore.ts';
 import { Layout } from './components/Layout.tsx';
 
 // Lazy load pages for performance
-import { Landing } from './pages/Landing.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
 import { Invoices } from './pages/Invoices.tsx';
 import { InvoiceEditor } from './pages/InvoiceEditor.tsx';
@@ -37,7 +36,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         
         {/* Protected Routes (Pseudo-protected by Guest Mode) */}
         <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
@@ -51,7 +50,7 @@ export default function App() {
         <Route path="/settings" element={<Layout><Settings /></Layout>} />
         
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
