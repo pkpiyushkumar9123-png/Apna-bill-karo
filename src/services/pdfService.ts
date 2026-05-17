@@ -14,18 +14,29 @@ export const generateInvoicePDF = async (invoice: Invoice, profile: BusinessProf
   const black = '#0A0A0A';
   const gray = '#8E9299';
 
-  // Branding
+  // Branding & Logo
+  if (profile?.logoUrl) {
+    try {
+      // Basic detection of image type from base64
+      const format = profile.logoUrl.includes('png') ? 'PNG' : 'JPEG';
+      doc.addImage(profile.logoUrl, format, 20, 15, 25, 25);
+    } catch (e) {
+      console.error('Failed to add logo to PDF:', e);
+    }
+  }
+
+  const businessNameX = profile?.logoUrl ? 50 : 20;
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(black);
-  doc.text(profile?.name || 'BUSINESS NAME', 20, 25);
+  doc.text(profile?.name || 'BUSINESS NAME', businessNameX, 25);
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(gray);
-  doc.text(profile?.address || '', 20, 32);
-  doc.text(profile?.email || '', 20, 36);
-  if (profile?.taxId) doc.text(`Tax ID: ${profile.taxId}`, 20, 40);
+  doc.text(profile?.address || '', businessNameX, 32);
+  doc.text(profile?.email || '', businessNameX, 36);
+  if (profile?.taxId) doc.text(`Tax ID: ${profile.taxId}`, businessNameX, 40);
 
   // Invoice Meta
   doc.setFontSize(30);

@@ -14,6 +14,8 @@ export interface BusinessProfile {
   website?: string;
   taxId?: string;
   currency: string;
+  notePresets?: string[];
+  termPresets?: string[];
 }
 
 export interface Customer {

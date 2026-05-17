@@ -71,7 +71,14 @@ export const Products: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <InventoryStat label="Total Items" value={products.length} />
-        <InventoryStat label="Avg. Price" value={`$${(products.reduce((acc, p) => acc + p.price, 0) / (products.length || 1)).toFixed(2)}`} />
+        <InventoryStat 
+          label="Avg. Price" 
+          value={`$${(() => {
+            const sum = products.reduce((acc, p) => acc + (parseFloat(String(p.price)) || 0), 0);
+            const avg = sum / (products.length || 1);
+            return (isNaN(avg) ? 0 : avg).toFixed(2);
+          })()}`} 
+        />
         <InventoryStat label="Categories" value={new Set(products.map(p => p.category)).size} />
         <InventoryStat label="Tax Types" value={new Set(products.map(p => p.taxRate)).size} />
       </div>

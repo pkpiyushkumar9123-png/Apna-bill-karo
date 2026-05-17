@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { 
@@ -17,7 +17,8 @@ import {
   QrCode,
   Type,
   Palette,
-  Copy
+  Copy,
+  BookOpen
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
 import { Invoice, InvoiceItem } from '../types.ts';
@@ -25,6 +26,7 @@ import { format } from 'date-fns';
 import { generateInvoicePDF } from '../services/pdfService.ts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { DEFAULT_NOTE_PRESETS, DEFAULT_TERM_PRESETS } from '../constants/presets.ts';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -62,6 +64,8 @@ export const InvoiceEditor: React.FC = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', companyName: '', address: '' });
   const [showQuickProduct, setShowQuickProduct] = useState<{ index: number } | null>(null);
   const [newProduct, setNewProduct] = useState({ name: '', price: 0, taxRate: 0 });
+  const [showNotePresets, setShowNotePresets] = useState(false);
+  const [showTermPresets, setShowTermPresets] = useState(false);
 
   const handleQuickCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) return;
@@ -123,16 +127,29 @@ export const InvoiceEditor: React.FC = () => {
     name: "items"
   });
 
-  const watchedItems = watch('items');
+  const watchedItems = useWatch({
+    control,
+    name: 'items'
+  }) || [];
+  
   const watchedNumber = watch('number');
   const watchedCustomerId = watch('customerId');
 
   const totals = useMemo(() => {
-    return watchedItems.reduce((acc, item) => {
-      const itemSubtotal = item.quantity * item.price;
-      const discountAmount = itemSubtotal * (item.discount / 100);
-      const afterDiscount = itemSubtotal - discountAmount;
-      const taxAmount = afterDiscount * (item.taxRate / 100);
+    if (!watchedItems || !Array.isArray(watchedItems)) {
+      return { subtotal: 0, taxTotal: 0, discountTotal: 0, total: 0 };
+    }
+
+    const calculated = watchedItems.reduce((acc, item) => {
+      const qty = parseFloat(String(item?.quantity)) || 0;
+      const price = parseFloat(String(item?.price)) || 0;
+      const taxRate = parseFloat(String(item?.taxRate)) || 0;
+      const discount = parseFloat(String(item?.discount)) || 0;
+
+      const itemSubtotal = qty * price;
+      const discountAmount = itemSubtotal * (discount / 100);
+      const afterDiscount = Math.max(0, itemSubtotal - discountAmount);
+      const taxAmount = Math.max(0, afterDiscount * (taxRate / 100));
       
       acc.subtotal += itemSubtotal;
       acc.discountTotal += discountAmount;
@@ -140,6 +157,13 @@ export const InvoiceEditor: React.FC = () => {
       acc.total += afterDiscount + taxAmount;
       return acc;
     }, { subtotal: 0, taxTotal: 0, discountTotal: 0, total: 0 });
+
+    return {
+      subtotal: isNaN(calculated.subtotal) ? 0 : Math.max(0, calculated.subtotal),
+      taxTotal: isNaN(calculated.taxTotal) ? 0 : Math.max(0, calculated.taxTotal),
+      discountTotal: isNaN(calculated.discountTotal) ? 0 : Math.max(0, calculated.discountTotal),
+      total: isNaN(calculated.total) ? 0 : Math.max(0, calculated.total)
+    };
   }, [watchedItems]);
 
   const onSubmit = async (data: InvoiceFormData) => {
@@ -195,6 +219,148 @@ export const InvoiceEditor: React.FC = () => {
   };
 
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId);
+
+  const renderPreviewContent = () => (
+    <div className="glass-card min-h-[800px] w-full max-w-4xl mx-auto p-8 md:p-12 bg-white text-black shadow-2xl relative overflow-hidden">
+        {/* Decorative background for template differentiation */}
+        {watch('templateId') === 'bold' && (
+           <div 
+             className="absolute top-0 right-0 w-1/2 h-full -mr-20 -mt-20 opacity-5 rotate-12"
+             style={{ backgroundColor: watch('accentColor') }}
+           />
+        )}
+        
+        {/* PDF Content Mockup */}
+        <div className={cn(
+           "flex mb-12 md:mb-20 items-start",
+           watch('templateId') === 'minimal' ? "flex-col gap-8" : "justify-between"
+        )}>
+          <div className="flex gap-6 items-center">
+            {profile?.logoUrl && (
+              <div className="w-24 h-24 rounded-xl overflow-hidden bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                <img src={profile.logoUrl} alt={profile.name} className="w-full h-full object-contain p-2" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter mb-4" style={{ color: watch('templateId') === 'bold' ? watch('accentColor') : 'inherit' }}>
+                 {profile?.name || 'BUSINESS NAME'}
+              </h2>
+              <div className="text-xs text-gray-500 leading-relaxed uppercase tracking-widest">
+                 <p>{profile?.address || 'Your Street, City'}</p>
+                 <p>{profile?.email || 'email@company.com'}</p>
+                 <p>{profile?.taxId && `Tax ID: ${profile.taxId}`}</p>
+              </div>
+            </div>
+          </div>
+          <div className={watch('templateId') === 'minimal' ? "text-left" : "text-right"}>
+            <p className={cn(
+               "text-4xl md:text-5xl font-black uppercase absolute pointer-events-none select-none",
+               watch('templateId') === 'bold' ? "-right-2 top-20 text-gray-200/50" : "-right-2 top-10 text-gray-100"
+            )}>Invoice</p>
+            <div className="relative z-10">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Number</p>
+              <p className="text-xl md:text-2xl font-black font-mono" style={{ color: watch('accentColor') }}>{watchedNumber}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className={cn(
+           "grid grid-cols-2 gap-8 md:gap-12 mb-12 md:mb-20 border-y py-8 md:py-12",
+           watch('templateId') === 'classic' ? "border-black" : "border-gray-100"
+        )}>
+           <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Billed to</p>
+              <p className="text-base md:text-lg font-black uppercase">{selectedCustomer?.name || 'CLIENT NAME'}</p>
+              <div className="text-xs text-gray-500 mt-2 leading-relaxed">
+                <p>{selectedCustomer?.address || 'Client Address'}</p>
+                <p>{selectedCustomer?.email || 'client@email.com'}</p>
+              </div>
+           </div>
+           <div className="text-right space-y-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Date</p>
+                <p className="text-sm font-bold uppercase">{format(watch('date'), 'MMM dd, yyyy')}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Due Date</p>
+                <p className="text-sm font-bold uppercase">{format(watch('dueDate'), 'MMM dd, yyyy')}</p>
+              </div>
+           </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full mb-12 md:mb-20 min-w-[600px]">
+             <thead>
+                <tr className="border-b-2 border-black">
+                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-left">Description</th>
+                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-center">Qty</th>
+                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Price</th>
+                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Amount</th>
+                </tr>
+             </thead>
+             <tbody className="divide-y divide-gray-100">
+                {watchedItems.map((item, idx) => {
+                  const q = parseFloat(String(item?.quantity)) || 0;
+                  const p = parseFloat(String(item?.price)) || 0;
+                  const d = parseFloat(String(item?.discount)) || 0;
+                  const t = parseFloat(String(item?.taxRate)) || 0;
+                  
+                  const sub = q * p;
+                  const discAmt = sub * (d / 100);
+                  const afterDisc = sub - discAmt;
+                  const taxAmt = afterDisc * (t / 100);
+                  const lineTotal = afterDisc + taxAmt;
+
+                  return (
+                    <tr key={idx}>
+                       <td className="py-6">
+                          <p className="font-bold text-gray-900">{item.description || 'Service Description'}</p>
+                          {(t > 0 || d > 0) && (
+                            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-tighter">
+                               {t > 0 && `Tax: ${t}% `}
+                               {d > 0 && `Disc: ${d}%`}
+                            </p>
+                          )}
+                       </td>
+                       <td className="py-6 text-center text-gray-600">{q}</td>
+                       <td className="py-6 text-right font-mono text-gray-600">${p.toFixed(2)}</td>
+                       <td className="py-6 text-right font-bold font-mono text-gray-900">${lineTotal.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+             </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end border-t-2 border-black pt-8 mb-12 md:mb-20">
+           <div className="w-64 space-y-4">
+              <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
+                 <span>Subtotal</span>
+                 <span>${totals.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
+                 <span>Tax Total</span>
+                 <span>${totals.taxTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between pt-4 border-t border-gray-100 text-2xl font-black uppercase">
+                 <span>Total</span>
+                 <span style={{ color: watch('accentColor') }}>${totals.total.toFixed(2)}</span>
+              </div>
+           </div>
+        </div>
+
+        <div className="mt-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 pt-12 border-t border-gray-100 italic text-xs text-gray-400">
+           <div>
+              <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Notes</p>
+              <p className="whitespace-pre-wrap">{watch('notes') || 'No special notes.'}</p>
+           </div>
+           <div className="text-right">
+              <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Terms</p>
+              <p className="whitespace-pre-wrap">{watch('terms') || 'Payment upon receipt.'}</p>
+           </div>
+        </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-8 h-full">
@@ -254,7 +420,7 @@ export const InvoiceEditor: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
         {/* Main Editor Area */}
         <div className={cn(
           "lg:col-span-8 space-y-8 transition-all duration-500",
@@ -362,32 +528,43 @@ export const InvoiceEditor: React.FC = () => {
             </div>
 
             {/* Line Items */}
-            <div className="glass-card space-y-6">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                   <h3 className="font-bold text-lg">Line Items</h3>
-                   <div className="px-2 py-0.5 bg-primary/10 rounded text-primary text-[10px] font-black uppercase tracking-tighter">
+            <div className="glass-card md:space-y-6 !p-0 md:!p-8 overflow-hidden">
+              <div className="flex justify-between items-center sticky top-0 z-30 px-6 py-4 md:px-0 md:py-0 glass md:bg-transparent md:backdrop-blur-none border-b border-white/5 md:border-none md:static">
+                <div className="flex items-center gap-3">
+                   <div className="flex flex-col">
+                      <h3 className="font-bold text-base md:text-lg">Line Items</h3>
+                      <span className="text-[9px] text-muted uppercase font-bold tracking-widest md:hidden">{fields.length} Items</span>
+                   </div>
+                   <div className="hidden md:flex px-2 py-0.5 bg-primary/10 rounded text-primary text-[10px] font-black uppercase tracking-tighter">
                       Vat Inclusive
                    </div>
                 </div>
-                <span className="text-[10px] text-muted uppercase font-bold tracking-widest">{fields.length} Items</span>
+                
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="md:hidden">
+                    <span className="text-xs font-black font-mono text-primary" style={{ color: watch('accentColor') }}>
+                      Total: ${totals.total.toFixed(2)}
+                    </span>
+                  </div>
+                  <span className="hidden md:block text-[10px] text-muted uppercase font-bold tracking-widest">{fields.length} Items</span>
+                </div>
               </div>
  
-              <div className="space-y-4">
+              <div className="space-y-4 p-6 md:p-0">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-12 gap-4 items-start p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-[30] relative focus-within:bg-white/[0.05] focus-within:border-primary/20">
-                    <div className="col-span-12 md:col-span-5 space-y-2 relative group-focus-within:z-[50]">
-                      <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Description</label>
+                  <div key={field.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
+                    <div className="w-full md:col-span-5 space-y-2 relative">
+                      <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
                       <div className="relative group/search">
                          <input 
                            {...register(`items.${index}.description` as const)} 
-                           placeholder="Service or Product name..."
-                           className="input-field w-full text-sm pl-10"
+                           placeholder="Enter service or product..."
+                           className="input-field w-full text-sm pl-10 h-11"
                          />
-                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={16} />
+                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={14} />
                          
-                         {/* Quick Product Results (simplistic dropdown) */}
-                         <div className="absolute top-full left-0 w-full mt-2 glass-card !p-2 z-[100] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-64 overflow-y-auto shadow-2xl border-primary/20 scale-95 group-focus-within/search:scale-100 origin-top">
+                         {/* Quick Product Results Dropdown */}
+                         <div className="absolute top-[calc(100%+8px)] left-0 w-full glass-card !p-2 z-[110] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-72 overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-primary/30 scale-95 group-focus-within/search:scale-100 origin-top backdrop-blur-3xl bg-surface/95">
                             <div className="flex justify-between items-center px-3 py-1 border-b border-white/5 mb-1">
                                <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Select or Add Product</p>
                                <button 
@@ -449,75 +626,94 @@ export const InvoiceEditor: React.FC = () => {
                          </div>
                       </div>
                     </div>
-                    <div className="col-span-4 md:col-span-2 space-y-2">
-                       <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Quantity</label>
-                       <input 
-                         type="number"
-                         {...register(`items.${index}.quantity` as const, { valueAsNumber: true })} 
-                         className="input-field w-full text-sm text-center font-bold"
-                       />
-                    </div>
-                    <div className="col-span-4 md:col-span-3 space-y-2">
-                       <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Unit Price</label>
-                       <div className="flex gap-2">
-                          <div className="relative flex-1">
-                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">$</span>
-                             <input 
-                               type="number"
-                               step="0.01"
-                               {...register(`items.${index}.price` as const, { valueAsNumber: true })} 
-                               className="input-field w-full text-sm pl-8 font-mono font-bold"
-                             />
-                          </div>
-                          <div className="flex gap-1">
-                             <div className="w-16 relative">
-                                <input 
-                                  type="number"
-                                  placeholder="Tax %"
-                                  {...register(`items.${index}.taxRate` as const, { valueAsNumber: true })} 
-                                  className="input-field w-full text-[10px] px-1 text-center"
-                                  title="Tax Rate %"
-                                />
-                                <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-muted">%</span>
-                             </div>
-                             <div className="w-16 relative">
-                                <input 
-                                  type="number"
-                                  placeholder="Disc %"
-                                  {...register(`items.${index}.discount` as const, { valueAsNumber: true })} 
-                                  className="input-field w-full text-[10px] px-1 text-center text-green-500 border-green-500/20"
-                                  title="Discount %"
-                                />
-                                <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-green-500/50">%</span>
-                             </div>
-                          </div>
-                       </div>
-                    </div>
-                    <div className="col-span-4 md:col-span-2 flex flex-col items-end justify-center h-full">
-                       <label className="text-[10px] font-bold text-muted uppercase tracking-wider mb-2">Total</label>
-                       <div className="flex items-center gap-1">
-                          <div className="text-right mr-2">
-                             <p className="text-sm font-black font-mono text-primary">
-                               ${(+(watchedItems[index]?.quantity || 0) * +(watchedItems[index]?.price || 0)).toFixed(2)}
-                             </p>
-                          </div>
-                          <button 
-                            type="button" 
-                            onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
-                            className="p-2 text-muted hover:text-primary transition-all opacity-0 group-hover:opacity-100"
-                            title="Duplicate Item"
-                          >
-                            <Copy size={16} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={() => remove(index)}
-                            className="p-2 text-muted hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
-                            title="Remove Item"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                       </div>
+                    
+                    <div className="w-full flex flex-col md:contents gap-6 md:gap-4 mt-2 md:mt-0">
+                      <div className="grid grid-cols-2 md:contents gap-4 w-full">
+                        <div className="space-y-2 md:col-span-2">
+                           <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
+                           <input 
+                             type="number"
+                             {...register(`items.${index}.quantity` as const, { valueAsNumber: true })} 
+                             className="input-field w-full text-sm text-center font-bold h-11"
+                           />
+                        </div>
+                        
+                        <div className="space-y-2 md:col-span-3">
+                           <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Unit Price</label>
+                           <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">$</span>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                {...register(`items.${index}.price` as const, { valueAsNumber: true })} 
+                                className="input-field w-full text-sm pl-8 font-mono font-bold h-11"
+                              />
+                           </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap md:col-span-2 gap-4 items-end w-full">
+                         <div className="flex-1 space-y-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest block text-center md:text-left">Tax & Disc</label>
+                            <div className="flex gap-2">
+                               <div className="flex-1 relative">
+                                  <input 
+                                    type="number"
+                                    placeholder="Tax (%)"
+                                    {...register(`items.${index}.taxRate` as const, { valueAsNumber: true })} 
+                                    className="input-field w-full text-[10px] px-2 text-center h-11"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-muted">%</span>
+                               </div>
+                               <div className="flex-1 relative">
+                                  <input 
+                                    type="number"
+                                    placeholder="Disc (%)"
+                                    {...register(`items.${index}.discount` as const, { valueAsNumber: true })} 
+                                    className="input-field w-full text-[10px] px-2 text-center text-green-500 border-green-500/20 h-11"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-green-500/50">%</span>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="md:col-span-2 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center w-full pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
+                         <label className="text-[10px] font-bold text-muted uppercase tracking-widest md:mb-2 text-primary" style={{ color: watch('accentColor') }}>Line Total</label>
+                         <div className="flex items-center gap-3">
+                            <div className="text-right">
+                               <p className="text-base md:text-sm font-black font-mono text-primary" style={{ color: watch('accentColor') }}>
+                                 ${(() => {
+                                   const qty = Number(watchedItems[index]?.quantity) || 0;
+                                   const prc = Number(watchedItems[index]?.price) || 0;
+                                   const disc = Number(watchedItems[index]?.discount) || 0;
+                                   const tax = Number(watchedItems[index]?.taxRate) || 0;
+                                   const sub = qty * prc;
+                                   const afterDisc = sub - (sub * (disc / 100));
+                                   return (afterDisc + (afterDisc * (tax / 100))).toFixed(2);
+                                 })()}
+                               </p>
+                            </div>
+                            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                              <button 
+                                type="button" 
+                                onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
+                                className="p-2.5 rounded-lg bg-white/5 text-muted hover:text-primary transition-all md:bg-transparent"
+                                title="Duplicate"
+                              >
+                                <Copy size={16} />
+                              </button>
+                              <button 
+                                type="button" 
+                                onClick={() => remove(index)}
+                                className="p-2.5 rounded-lg bg-white/5 text-muted hover:text-red-500 transition-all md:bg-transparent"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                         </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -526,32 +722,123 @@ export const InvoiceEditor: React.FC = () => {
               <button 
                 type="button"
                 onClick={() => append({ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0 })}
-                className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center gap-2 text-muted hover:border-primary/50 transition-all text-sm font-bold uppercase tracking-widest"
-                style={{ '--tw-hover-text': watch('accentColor') } as any}
+                className="w-full py-4 border-2 border-dashed rounded-xl flex items-center justify-center gap-2 transition-all text-sm font-bold uppercase tracking-widest"
+                style={{ 
+                  borderColor: `${watch('accentColor')}20`,
+                  color: watch('accentColor'),
+                  '--tw-hover-border': watch('accentColor')
+                } as any}
               >
-                <Plus size={18} style={{ color: watch('accentColor') }} />
+                <Plus size={18} />
                 Add Line Item
               </button>
             </div>
 
             {/* Notes & Terms */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="glass-card">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted block mb-4">Notes</label>
+              <div className="glass-card space-y-4">
+                <div className="flex items-center justify-between">
+                   <label className="text-xs font-bold uppercase tracking-widest text-muted">Additional Notes</label>
+                   <div className="relative">
+                     <button 
+                       type="button" 
+                       onClick={() => setShowNotePresets(!showNotePresets)}
+                       className="p-1 px-2 rounded-lg bg-white/5 text-muted hover:text-primary transition-all flex items-center gap-2 border border-white/5"
+                     >
+                        <BookOpen size={12} />
+                        <span className="text-[10px] font-bold uppercase">Presets</span>
+                     </button>
+                     {showNotePresets && (
+                       <>
+                         <div className="fixed inset-0 z-40" onClick={() => setShowNotePresets(false)} />
+                         <div className="absolute bottom-full right-0 mb-2 w-64 glass shadow-2xl rounded-xl border border-white/10 z-50 p-2 overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-bottom-2">
+                            <p className="text-[9px] font-black text-muted uppercase tracking-tighter p-2 border-b border-white/5 mb-1">Quick Apply Notes</p>
+                            {[...(profile?.notePresets || []), ...DEFAULT_NOTE_PRESETS].map((p, i) => (
+                               <button 
+                                 key={i} 
+                                 type="button"
+                                 onClick={() => {
+                                   setValue('notes', p, { shouldDirty: true });
+                                   setShowNotePresets(false);
+                                 }}
+                                 className="w-full text-left p-2 hover:bg-primary/10 rounded-lg text-xs truncate transition-all text-white"
+                               >
+                                 {p}
+                               </button>
+                            ))}
+                         </div>
+                       </>
+                     )}
+                   </div>
+                </div>
                 <textarea 
                   {...register('notes')}
-                  className="input-field w-full h-32 resize-none text-sm" 
-                  placeholder="Thank you for your business!"
+                  placeholder="e.g. Thank you for your business!"
+                  className="input-field w-full h-32 resize-none text-sm"
                 />
               </div>
-              <div className="glass-card">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted block mb-4">Terms & Conditions</label>
+              <div className="glass-card space-y-4">
+                <div className="flex items-center justify-between">
+                   <label className="text-xs font-bold uppercase tracking-widest text-muted">Terms & Conditions</label>
+                   <div className="relative">
+                     <button 
+                       type="button" 
+                       onClick={() => setShowTermPresets(!showTermPresets)}
+                       className="p-1 px-2 rounded-lg bg-white/5 text-muted hover:text-primary transition-all flex items-center gap-2 border border-white/5"
+                     >
+                        <BookOpen size={12} />
+                        <span className="text-[10px] font-bold uppercase">Presets</span>
+                     </button>
+                     {showTermPresets && (
+                       <>
+                         <div className="fixed inset-0 z-40" onClick={() => setShowTermPresets(false)} />
+                         <div className="absolute bottom-full right-0 mb-2 w-64 glass shadow-2xl rounded-xl border border-white/10 z-50 p-2 overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-bottom-2">
+                            <p className="text-[9px] font-black text-muted uppercase tracking-tighter p-2 border-b border-white/5 mb-1">Quick Apply Terms</p>
+                            {[...(profile?.termPresets || []), ...DEFAULT_TERM_PRESETS].map((p, i) => (
+                               <button 
+                                 key={i} 
+                                 type="button"
+                                 onClick={() => {
+                                   setValue('terms', p, { shouldDirty: true });
+                                   setShowTermPresets(false);
+                                 }}
+                                 className="w-full text-left p-2 hover:bg-primary/10 rounded-lg text-xs truncate transition-all text-white"
+                               >
+                                 {p}
+                               </button>
+                            ))}
+                         </div>
+                       </>
+                     )}
+                   </div>
+                </div>
                 <textarea 
                   {...register('terms')}
-                  className="input-field w-full h-32 resize-none text-sm" 
-                  placeholder="Payment is due within 7 days."
+                  placeholder="e.g. Payment due in 7 days."
+                  className="input-field w-full h-32 resize-none text-sm"
                 />
               </div>
+            </div>
+
+            {/* Live Preview Section at the bottom */}
+            <div className="space-y-6 pt-12">
+               <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <Eye size={16} />
+                     </div>
+                     <div>
+                        <h3 className="font-bold text-lg">Live Invoice Preview</h3>
+                        <p className="text-[10px] text-muted uppercase font-bold tracking-widest">Scroll down for real-time impact</p>
+                     </div>
+                  </div>
+                  <div className="flex gap-2">
+                     <p className="text-xs font-bold text-muted uppercase tracking-widest hidden sm:block">Real-time Rendering</p>
+                  </div>
+               </div>
+               <div className="scale-90 md:scale-100 origin-top">
+                  {renderPreviewContent()}
+               </div>
             </div>
           </form>
         </div>
@@ -562,114 +849,8 @@ export const InvoiceEditor: React.FC = () => {
           isPreview ? "lg:col-span-12 w-full" : "lg:col-span-4"
         )}>
            {isPreview ? (
-             <div className="glass-card min-h-[800px] w-full max-w-4xl mx-auto p-12 bg-white text-black shadow-2xl relative overflow-hidden">
-                {/* Decorative background for template differentiation */}
-                {watch('templateId') === 'bold' && (
-                   <div 
-                     className="absolute top-0 right-0 w-1/2 h-full -mr-20 -mt-20 opacity-5 rotate-12"
-                     style={{ backgroundColor: watch('accentColor') }}
-                   />
-                )}
-                
-                {/* PDF Content Mockup */}
-                <div className={cn(
-                   "flex mb-20",
-                   watch('templateId') === 'minimal' ? "flex-col gap-8" : "justify-between items-start"
-                )}>
-                  <div>
-                    <h2 className="text-4xl font-black uppercase tracking-tighter mb-4" style={{ color: watch('templateId') === 'bold' ? watch('accentColor') : 'inherit' }}>
-                       {profile?.name || 'BUSINESS NAME'}
-                    </h2>
-                    <div className="text-xs text-gray-500 leading-relaxed uppercase tracking-widest">
-                       <p>{profile?.address || 'Your Street, City'}</p>
-                       <p>{profile?.email || 'email@company.com'}</p>
-                       <p>{profile?.taxId && `Tax ID: ${profile.taxId}`}</p>
-                    </div>
-                  </div>
-                  <div className={watch('templateId') === 'minimal' ? "text-left" : "text-right"}>
-                    <p className={cn(
-                       "text-5xl font-black uppercase absolute pointer-events-none select-none",
-                       watch('templateId') === 'bold' ? "-right-2 top-20 text-gray-200/50" : "-right-2 top-10 text-gray-100"
-                    )}>Invoice</p>
-                    <div className="relative z-10">
-                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Number</p>
-                      <p className="text-2xl font-black font-mono" style={{ color: watch('accentColor') }}>{watchedNumber}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={cn(
-                   "grid grid-cols-2 gap-12 mb-20 border-y py-12",
-                   watch('templateId') === 'classic' ? "border-black" : "border-gray-100"
-                )}>
-                   <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Billed to</p>
-                      <p className="text-lg font-black uppercase">{selectedCustomer?.name || 'CLIENT NAME'}</p>
-                      <div className="text-xs text-gray-500 mt-2 leading-relaxed">
-                        <p>{selectedCustomer?.address || 'Client Address'}</p>
-                        <p>{selectedCustomer?.email || 'client@email.com'}</p>
-                      </div>
-                   </div>
-                   <div className="text-right space-y-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Date</p>
-                        <p className="text-sm font-bold uppercase">{format(watch('date'), 'MMM dd, yyyy')}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Due Date</p>
-                        <p className="text-sm font-bold uppercase">{format(watch('dueDate'), 'MMM dd, yyyy')}</p>
-                      </div>
-                   </div>
-                </div>
-
-                <table className="w-full mb-20">
-                   <thead>
-                      <tr className="border-b-2 border-black">
-                         <th className="py-4 text-xs font-bold uppercase tracking-widest text-left">Description</th>
-                         <th className="py-4 text-xs font-bold uppercase tracking-widest text-center">Qty</th>
-                         <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Price</th>
-                         <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Amount</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-gray-100">
-                      {watchedItems.map((item, idx) => (
-                        <tr key={idx}>
-                           <td className="py-6 font-bold">{item.description || 'Service Description'}</td>
-                           <td className="py-6 text-center">{item.quantity}</td>
-                           <td className="py-6 text-right font-mono">${(item.price || 0).toFixed(2)}</td>
-                           <td className="py-6 text-right font-bold font-mono">${(item.quantity * item.price).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                   </tbody>
-                </table>
-
-                <div className="flex justify-end border-t-2 border-black pt-8 mb-20">
-                   <div className="w-64 space-y-4">
-                      <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
-                         <span>Subtotal</span>
-                         <span>${totals.subtotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
-                         <span>Tax Total</span>
-                         <span>${totals.taxTotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between pt-4 border-t border-gray-100 text-2xl font-black uppercase">
-                         <span>Total</span>
-                         <span style={{ color: watch('accentColor') }}>${totals.total.toFixed(2)}</span>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="mt-auto grid grid-cols-2 gap-12 pt-12 border-t border-gray-100 italic text-xs text-gray-400">
-                   <div>
-                      <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Notes</p>
-                      <p>{watch('notes') || 'No special notes.'}</p>
-                   </div>
-                   <div className="text-right">
-                      <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Terms</p>
-                      <p>{watch('terms') || 'Payment upon receipt.'}</p>
-                   </div>
-                </div>
+             <div className="py-4">
+                {renderPreviewContent()}
              </div>
            ) : (
              <div className="space-y-6">

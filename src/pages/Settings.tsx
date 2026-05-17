@@ -15,9 +15,15 @@ import {
   Check,
   Download,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Plus,
+  X,
+  StickyNote,
+  ScrollText
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
+import { DEFAULT_NOTE_PRESETS, DEFAULT_TERM_PRESETS } from '../constants/presets.ts';
 
 export const Settings: React.FC = () => {
   const { profile, settings, updateProfile, updateSettings, init } = useStore();
@@ -54,10 +60,53 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Logo must be smaller than 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateProfile({ ...profile, logoUrl: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => {
+    if (!profile) return;
+    updateProfile({ ...profile, logoUrl: '' });
+  };
+
+  const addPreset = async (type: 'note' | 'term', value: string) => {
+    if (!profile) return;
+    const presets = type === 'note' ? [...(profile.notePresets || [])] : [...(profile.termPresets || [])];
+    const trimmed = value.trim();
+    if (trimmed && !presets.includes(trimmed)) {
+      await updateProfile({ 
+        ...profile, 
+        [type === 'note' ? 'notePresets' : 'termPresets']: [...presets, trimmed] 
+      });
+    }
+  };
+
+  const removePreset = async (type: 'note' | 'term', index: number) => {
+    if (!profile) return;
+    const presets = type === 'note' ? [...(profile.notePresets || [])] : [...(profile.termPresets || [])];
+    const updated = presets.filter((_, i) => i !== index);
+    await updateProfile({ 
+      ...profile, 
+      [type === 'note' ? 'notePresets' : 'termPresets']: updated 
+    });
+  };
+
   const accentColors = ['#FF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
+    <div className="max-w-4xl mx-auto space-y-12 pb-20">
       <div>
         <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
         <p className="text-muted">Configure your business profile and application preferences.</p>
@@ -71,63 +120,188 @@ export const Settings: React.FC = () => {
           <h2 className="text-xl font-bold tracking-tight">Business Profile</h2>
         </div>
 
-        <div className="glass-card space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Legal Business Name</label>
-              <input 
-                name="name"
-                value={profile?.name || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full" 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Email</label>
-              <input 
-                name="email"
-                value={profile?.email || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full" 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Phone Number</label>
-              <input 
-                name="phone"
-                value={profile?.phone || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full" 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Website</label>
-              <input 
-                name="website"
-                value={profile?.website || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full" 
-              />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Tax ID / VAT Registration</label>
-              <input 
-                name="taxId"
-                value={profile?.taxId || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full" 
-              />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Address</label>
-              <textarea 
-                name="address"
-                value={profile?.address || ''}
-                onChange={handleProfileChange}
-                className="input-field w-full h-24 resize-none" 
-              />
-            </div>
+        <div className="glass-card space-y-8">
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+             <div className="space-y-4">
+                <label className="text-xs font-bold uppercase tracking-widest text-muted block">Business Logo</label>
+                <div className="relative group">
+                   <div className="w-40 h-40 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 overflow-hidden flex items-center justify-center transition-all group-hover:border-primary/50">
+                      {profile?.logoUrl ? (
+                        <img src={profile.logoUrl} alt="Logo" className="w-full h-full object-contain p-4" />
+                      ) : (
+                        <Upload size={32} className="text-muted group-hover:text-primary transition-colors" />
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                      />
+                   </div>
+                   {profile?.logoUrl && (
+                      <button 
+                        onClick={removeLogo}
+                        className="absolute -top-2 -right-2 p-1.5 bg-red-500 rounded-full text-white shadow-xl hover:scale-110 transition-all"
+                      >
+                         <X size={12} />
+                      </button>
+                   )}
+                </div>
+                <p className="text-[10px] text-muted uppercase tracking-widest text-center">PNG, JPG up to 2MB</p>
+             </div>
+
+             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+               <div className="space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Legal Business Name</label>
+                 <input 
+                   name="name"
+                   value={profile?.name || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full" 
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Email</label>
+                 <input 
+                   name="email"
+                   value={profile?.email || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full" 
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Phone Number</label>
+                 <input 
+                   name="phone"
+                   value={profile?.phone || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full" 
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Website</label>
+                 <input 
+                   name="website"
+                   value={profile?.website || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full" 
+                 />
+               </div>
+               <div className="md:col-span-2 space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Tax ID / VAT Registration</label>
+                 <input 
+                   name="taxId"
+                   value={profile?.taxId || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full" 
+                 />
+               </div>
+               <div className="md:col-span-2 space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Address</label>
+                 <textarea 
+                   name="address"
+                   value={profile?.address || ''}
+                   onChange={handleProfileChange}
+                   className="input-field w-full h-24 resize-none" 
+                 />
+               </div>
+             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <ScrollText size={18} />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight">Invoice Presets</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           {/* Note Presets */}
+           <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Note Presets</label>
+                 <button 
+                   onClick={() => {
+                     const val = prompt('Enter new note preset:');
+                     if (val) addPreset('note', val);
+                   }}
+                   className="p-1 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center gap-2"
+                 >
+                    <Plus size={14} />
+                    <span className="text-[10px] font-bold uppercase">Add New</span>
+                 </button>
+              </div>
+              <div className="glass-card max-h-60 overflow-y-auto space-y-2 p-4">
+                 {[...(profile?.notePresets || [])].map((preset, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 group">
+                       <span className="text-xs truncate mr-4">{preset}</span>
+                       <button 
+                         onClick={() => removePreset('note', i)}
+                         className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                       >
+                          <X size={14} />
+                       </button>
+                    </div>
+                 ))}
+                 {(!profile?.notePresets || profile.notePresets.length === 0) && (
+                    <p className="text-center py-4 text-xs text-muted">No custom presets yet.</p>
+                 )}
+              </div>
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                 <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-3">System Defaults</p>
+                 <div className="flex flex-wrap gap-2">
+                    {DEFAULT_NOTE_PRESETS.slice(0, 3).map((p, i) => (
+                       <span key={i} className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-muted">{p}</span>
+                    ))}
+                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-muted">+{DEFAULT_NOTE_PRESETS.length - 3} more</span>
+                 </div>
+              </div>
+           </div>
+
+           {/* Term Presets */}
+           <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Terms Presets</label>
+                 <button 
+                   onClick={() => {
+                     const val = prompt('Enter new term preset:');
+                     if (val) addPreset('term', val);
+                   }}
+                   className="p-1 px-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-all flex items-center gap-2"
+                 >
+                    <Plus size={14} />
+                    <span className="text-[10px] font-bold uppercase">Add New</span>
+                 </button>
+              </div>
+              <div className="glass-card max-h-60 overflow-y-auto space-y-2 p-4">
+                 {[...(profile?.termPresets || [])].map((preset, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 group">
+                       <span className="text-xs truncate mr-4">{preset}</span>
+                       <button 
+                         onClick={() => removePreset('term', i)}
+                         className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                       >
+                          <X size={14} />
+                       </button>
+                    </div>
+                 ))}
+                 {(!profile?.termPresets || profile.termPresets.length === 0) && (
+                    <p className="text-center py-4 text-xs text-muted">No custom presets yet.</p>
+                 )}
+              </div>
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                 <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-3">System Defaults</p>
+                 <div className="flex flex-wrap gap-2">
+                    {DEFAULT_TERM_PRESETS.slice(0, 3).map((p, i) => (
+                       <span key={i} className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-muted">{p}</span>
+                    ))}
+                    <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] text-muted">+{DEFAULT_TERM_PRESETS.length - 3} more</span>
+                 </div>
+              </div>
+           </div>
         </div>
       </section>
 

@@ -43,16 +43,16 @@ export const Dashboard: React.FC = () => {
   const customers = useStore((state) => state.customers);
   
   const stats = useMemo(() => {
-    const total = invoices.reduce((acc, inv) => acc + inv.total, 0);
-    const pending = invoices.filter(i => i.status === 'pending').reduce((acc, inv) => acc + inv.total, 0);
-    const paid = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + inv.total, 0);
-    const overdue = invoices.filter(i => i.status === 'overdue').reduce((acc, inv) => acc + inv.total, 0);
+    const total = invoices.reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
+    const pending = invoices.filter(i => i.status === 'pending').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
+    const paid = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
+    const overdue = invoices.filter(i => i.status === 'overdue').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
     
     return {
-      total,
-      pending,
-      paid,
-      overdue,
+      total: isNaN(total) ? 0 : total,
+      pending: isNaN(pending) ? 0 : pending,
+      paid: isNaN(paid) ? 0 : paid,
+      overdue: isNaN(overdue) ? 0 : overdue,
       count: invoices.length,
       customerCount: customers.length
     };
