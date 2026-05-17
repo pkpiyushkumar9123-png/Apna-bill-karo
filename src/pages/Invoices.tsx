@@ -12,28 +12,113 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingUp,
-  FileText
+  FileText,
+  X,
+  CreditCard,
+  Calendar,
+  User,
+  Hash
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
 import { format } from 'date-fns';
 import { generateInvoicePDF } from '../services/pdfService.ts';
+import { motion, AnimatePresence } from 'motion/react';
+
+const STATUSES = ['draft', 'pending', 'paid', 'overdue'] as const;
+
+const StatusSlider = ({ currentStatus, onUpdate, compact = false, className = '' }: { 
+  currentStatus: string, 
+  onUpdate: (s: any) => void, 
+  compact?: boolean,
+  className?: string
+}) => {
+  return (
+    <div 
+      className={`relative ${compact ? 'h-8 px-1' : 'h-12 p-1.5'} glass border border-white/10 rounded-2xl flex items-center ${className}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <motion.div 
+        className={`absolute ${compact ? 'inset-y-1' : 'inset-y-1.5'} rounded-xl bg-primary shadow-lg shadow-primary/20`}
+        initial={false}
+        animate={{ 
+          left: `${(STATUSES.indexOf(currentStatus as any) / STATUSES.length) * 100}%`,
+          width: `${100 / STATUSES.length}%`
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      />
+      {STATUSES.map((status) => (
+        <button
+          key={status}
+          onClick={() => onUpdate(status)}
+          className={`relative z-10 flex-1 h-full font-bold uppercase tracking-widest transition-colors duration-300 ${compact ? 'text-[7px]' : 'text-[10px]'}`}
+          style={{ 
+            color: currentStatus === status ? 'white' : 'rgba(255,255,255,0.4)' 
+          }}
+        >
+          {status}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 export const Invoices: React.FC = () => {
-  const { invoices, deleteInvoice, addInvoice, customers, profile } = useStore();
+  const { invoices, deleteInvoice, addInvoice, updateInvoice, customers, profile } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+
+  const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
+  const selectedCustomer = customers.find(c => c.id === selectedInvoice?.customerId);
 
   const handleDownload = (inv: any) => {
     const customer = customers.find(c => c.id === inv.customerId);
     generateInvoicePDF(inv, profile, customer);
   };
 
+  const exportToCSV = () => {
+    if (invoices.length === 0) return;
+    
+    const headers = ['Invoice Number', 'Client', 'Date', 'Due Date', 'Status', 'Category', 'Total', 'Currency'];
+    const rows = invoices.map(inv => [
+      inv.number,
+      customers.find(c => c.id === inv.customerId)?.name || inv.customerId,
+      format(inv.date, 'yyyy-MM-dd'),
+      format(inv.dueDate, 'yyyy-MM-dd'),
+      inv.status,
+      inv.category || '',
+      inv.total.toFixed(2),
+      inv.currency
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `invoices_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredInvoices = invoices.filter(inv => {
+    const customer = customers.find(c => c.id === inv.customerId);
+    const clientName = customer?.name || '';
     const matchesSearch = inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          inv.customerId.toLowerCase().includes(searchTerm.toLowerCase());
+                          clientName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'all' || inv.category === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const categories = Array.from(new Set(invoices.map(inv => inv.category).filter(Boolean)));
 
   return (
     <div className="space-y-8">
@@ -44,7 +129,10 @@ export const Invoices: React.FC = () => {
           <p className="text-muted text-sm">Manage and track all your outgoing bills in one place.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="btn-secondary flex items-center gap-2 py-2.5 text-sm">
+          <button 
+            onClick={exportToCSV}
+            className="btn-secondary flex items-center gap-2 py-2.5 text-sm"
+          >
             <Download size={18} />
             Export CSV
           </button>
@@ -74,9 +162,9 @@ export const Invoices: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <select 
-            className="input-field py-3 text-sm flex-1 md:w-48 appearance-none"
+            className="input-field py-3 text-sm flex-1 md:w-40 appearance-none bg-background"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -85,6 +173,16 @@ export const Invoices: React.FC = () => {
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
+          </select>
+          <select 
+            className="input-field py-3 text-sm flex-1 md:w-40 appearance-none bg-background"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <option value="all">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
           <button className="p-3 glass rounded-xl text-muted hover:text-white transition-all">
             <Filter size={18} />
@@ -110,27 +208,43 @@ export const Invoices: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-primary border border-white/5">
-                            <FileText size={20} />
+                    <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors group relative">
+                      <td className="px-6 py-6 cursor-pointer" onClick={() => setSelectedInvoiceId(inv.id)}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-primary border border-white/5 shrink-0">
+                            <FileText size={24} />
                           </div>
-                          <div>
-                            <p className="text-sm font-bold tracking-tight">#{inv.number}</p>
-                            <p className="text-[10px] text-muted">ID: {inv.customerId.slice(-6)}</p>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold tracking-tight">#{inv.number}</p>
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
+                                inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
+                                inv.status === 'draft' ? 'bg-white/10 text-muted shadow-inner' :
+                                'bg-red-500/10 text-red-500'
+                              }`}>
+                                {inv.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] text-muted">{customers.find(c => c.id === inv.customerId)?.name || 'Unknown Client'}</p>
+                              {inv.category && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-primary/5 text-primary/70 border border-primary/10 uppercase font-black">
+                                  {inv.category}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
-                          inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
-                          inv.status === 'draft' ? 'bg-white/10 text-muted' :
-                          'bg-red-500/10 text-red-500'
-                        }`}>
-                          {inv.status}
-                        </span>
+                      <td className="px-6 py-6 border-l border-white/[0.02]">
+                        <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Update Status</p>
+                        <StatusSlider 
+                          currentStatus={inv.status} 
+                          onUpdate={(status) => updateInvoice({ ...inv, status })}
+                          compact
+                          className="w-44"
+                        />
                       </td>
                       <td className="px-6 py-5">
                         <p className="text-sm text-muted">{format(inv.dueDate, 'MMM dd, yyyy')}</p>
@@ -192,10 +306,10 @@ export const Invoices: React.FC = () => {
             {/* Mobile Card View */}
             <div className="lg:hidden space-y-4">
               {filteredInvoices.map((inv) => (
-                <div key={inv.id} className="glass-card flex flex-col gap-4">
+                <div key={inv.id} className="glass-card flex flex-col gap-4 group" onClick={() => setSelectedInvoiceId(inv.id)}>
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-primary border border-white/5">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                         <FileText size={20} />
                       </div>
                       <div>
@@ -203,24 +317,49 @@ export const Invoices: React.FC = () => {
                         <p className="text-[10px] text-muted">{format(inv.date, 'MMM dd, yyyy')}</p>
                       </div>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                      inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
-                      inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
-                      inv.status === 'draft' ? 'bg-white/10 text-muted' :
-                      'bg-red-500/10 text-red-500'
-                    }`}>
-                      {inv.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                        inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
+                        inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
+                        inv.status === 'draft' ? 'bg-white/10 text-muted shadow-inner' :
+                        'bg-red-500/10 text-red-500'
+                      }`}>
+                        {inv.status}
+                      </span>
+                      {inv.category && (
+                        <span className="text-[7px] px-1.5 py-0.5 rounded-md bg-white/5 text-muted border border-white/5 uppercase font-medium">
+                          {inv.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between items-end pt-4 border-t border-white/5">
+                  <div className="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
                     <div>
-                      <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Total Amount</p>
-                      <p className="text-xl font-black font-mono tracking-tighter">${inv.total.toFixed(2)}</p>
+                      <p className="text-[9px] font-bold text-muted uppercase tracking-widest mb-1">Total Amount</p>
+                      <p className="text-lg font-black font-mono tracking-tighter">${inv.total.toFixed(2)}</p>
                     </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-bold text-muted uppercase tracking-widest mb-1">Client</p>
+                      <p className="text-[11px] font-bold truncate">{customers.find(c => c.id === inv.customerId)?.name || 'Unknown'}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[9px] font-bold text-muted uppercase tracking-widest">Update Status</p>
+                    <StatusSlider 
+                      currentStatus={inv.status} 
+                      onUpdate={(status) => updateInvoice({ ...inv, status })}
+                      compact
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2">
                     <div className="flex items-center gap-1">
                       <button 
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           const newNum = `INV-REF-${Date.now().toString().slice(-4)}`;
                           const newInvoice = { 
                             ...inv, 
@@ -239,19 +378,26 @@ export const Invoices: React.FC = () => {
                         <Copy size={16} />
                       </button>
                       <button 
-                        onClick={() => handleDownload(inv)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(inv);
+                        }}
                         className="p-2.5 glass rounded-xl text-muted"
                       >
                         <Download size={16} />
                       </button>
                       <NavLink 
                         to={`/invoices/${inv.id}`} 
+                        onClick={(e) => e.stopPropagation()}
                         className="p-2.5 glass rounded-xl text-primary"
                       >
                         <ExternalLink size={16} />
                       </NavLink>
                       <button 
-                        onClick={() => deleteInvoice(inv.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteInvoice(inv.id);
+                        }}
                         className="p-2.5 glass rounded-xl text-red-400"
                       >
                         <Trash2 size={16} />
@@ -276,6 +422,130 @@ export const Invoices: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Invoice Management Modal */}
+      <AnimatePresence>
+        {selectedInvoice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedInvoiceId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg glass border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 space-y-6">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <FileText size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold tracking-tight">Manage Invoice</h3>
+                      <p className="text-xs text-muted">#{selectedInvoice.number}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedInvoiceId(null)}
+                    className="p-2 rounded-xl hover:bg-white/5 text-muted hover:text-white transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Grid Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                    <div className="flex items-center gap-2 text-muted">
+                      <User size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Client</span>
+                    </div>
+                    <p className="text-sm font-bold">{selectedCustomer?.name || 'Unknown'}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                    <div className="flex items-center gap-2 text-muted">
+                      <Calendar size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Due Date</span>
+                    </div>
+                    <p className="text-sm font-bold">{format(selectedInvoice.dueDate, 'MMM dd, yyyy')}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                    <div className="flex items-center gap-2 text-muted">
+                      <CreditCard size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Amount</span>
+                    </div>
+                    <p className="text-sm font-black font-mono tracking-tighter">${selectedInvoice.total.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-1">
+                    <div className="flex items-center gap-2 text-muted">
+                      <Hash size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Category</span>
+                    </div>
+                    <p className="text-sm font-bold">{selectedInvoice.category || 'Uncategorized'}</p>
+                  </div>
+                </div>
+
+                {/* Actions Row */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleDownload(selectedInvoice)}
+                    className="flex-1 btn-secondary flex items-center justify-center gap-2 py-3"
+                  >
+                    <Download size={18} />
+                    Download
+                  </button>
+                  <NavLink 
+                    to={`/invoices/${selectedInvoice.id}`} 
+                    className="flex-1 btn-primary flex items-center justify-center gap-2 py-3"
+                  >
+                    <ExternalLink size={18} />
+                    Edit
+                  </NavLink>
+                </div>
+
+                {/* Status Slider Container */}
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted">Update Status</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                      selectedInvoice.status === 'paid' ? 'text-green-500' : 
+                      selectedInvoice.status === 'pending' ? 'text-yellow-500' : 
+                      selectedInvoice.status === 'draft' ? 'text-muted' :
+                      'text-red-500'
+                    }`}>{selectedInvoice.status}</span>
+                  </div>
+                  
+                  {/* The Sliding Bar */}
+                  <StatusSlider 
+                    currentStatus={selectedInvoice.status} 
+                    onUpdate={(status) => updateInvoice({ ...selectedInvoice, status })}
+                  />
+                </div>
+
+                {/* Danger Zone */}
+                <button 
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this invoice?')) {
+                      deleteInvoice(selectedInvoice.id);
+                      setSelectedInvoiceId(null);
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest text-red-400/50 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                  Delete Permanently
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

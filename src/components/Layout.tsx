@@ -86,8 +86,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <div className="p-6 flex items-center justify-between overflow-hidden">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 shrink-0">
-              <Zap className="text-white fill-white" size={24} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-white/10 bg-white/5">
+              {profile?.logoUrl ? (
+                <img src={profile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <Zap className="text-primary fill-primary" size={24} />
+              )}
             </div>
             {!isCollapsed && (
               <motion.span 
@@ -95,7 +99,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 animate={{ opacity: 1 }}
                 className="text-xl font-bold tracking-tight whitespace-nowrap"
               >
-                NovaBill
+                {profile?.name?.split(' ')[0] || 'apna-bill-karo'}
               </motion.span>
             )}
           </div>
@@ -115,10 +119,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-hidden">
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" collapsed={isCollapsed} />
-          <NavItem to="/invoices" icon={<FileText size={20} />} label="Invoices" collapsed={isCollapsed} />
+          <NavItem to="/invoices/new" icon={<PlusCircle size={20} />} label="Create Invoice" collapsed={isCollapsed} />
+          <NavItem to="/invoices" icon={<FileText size={20} />} label="Manage Invoice" collapsed={isCollapsed} />
           <NavItem to="/customers" icon={<Users size={20} />} label="Customers" collapsed={isCollapsed} />
           <NavItem to="/products" icon={<Package size={20} />} label="Products" collapsed={isCollapsed} />
-          <NavItem to="/templates" icon={<LayoutTemplate size={20} />} label="Templates" collapsed={isCollapsed} />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" collapsed={isCollapsed} />
           <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" collapsed={isCollapsed} />
         </nav>

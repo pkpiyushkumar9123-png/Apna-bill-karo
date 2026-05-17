@@ -45,7 +45,7 @@ export const useStore = create<AppState>((set, get) => ({
     theme: 'dark',
     accentColor: '#FF4444',
     language: 'en',
-    currencyDefault: 'USD',
+    currencyDefault: 'INR',
     density: 'comfortable',
   },
   isLoading: true,
@@ -83,12 +83,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (!profile) {
         profile = {
           id: 'default',
-          name: 'NovaBill Business',
-          email: 'hello@yourbusiness.com',
-          currency: 'USD',
-          address: 'Your Business Address',
-          website: 'www.yourwebsite.com',
-          phone: '+1 (555) 000-0000'
+          name: 'apna-bill-karo',
+          email: 'hello@apnabillkaro.com',
+          currency: 'INR',
+          address: 'Your Business Address, India',
+          website: 'www.apna-bill-karo.com',
+          phone: '+91 99999 00000',
+          logoUrl: '/logo.png'
         };
         await dbService.put('profiles', profile);
       }

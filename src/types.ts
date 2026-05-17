@@ -63,6 +63,7 @@ export interface Invoice {
   discountTotal: number;
   total: number;
   status: InvoiceStatus;
+  category?: string;
   notes?: string;
   terms?: string;
   templateId: string;

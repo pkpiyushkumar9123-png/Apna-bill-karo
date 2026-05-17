@@ -49,6 +49,7 @@ const invoiceSchema = z.object({
   items: z.array(itemSchema).min(1, 'At least one item is required'),
   notes: z.string().optional(),
   terms: z.string().optional(),
+  category: z.string().optional(),
   templateId: z.string(),
   accentColor: z.string().optional(),
 });
@@ -107,6 +108,7 @@ export const InvoiceEditor: React.FC = () => {
       items: initialInvoice.items,
       notes: initialInvoice.notes,
       terms: initialInvoice.terms,
+      category: initialInvoice.category || '',
       templateId: initialInvoice.templateId || 'modern',
       accentColor: (initialInvoice as any).accentColor || '#3B82F6',
     } : {
@@ -117,6 +119,7 @@ export const InvoiceEditor: React.FC = () => {
       items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0 }],
       notes: '',
       terms: '',
+      category: '',
       templateId: 'modern',
       accentColor: '#3B82F6',
     }
@@ -428,11 +431,22 @@ export const InvoiceEditor: React.FC = () => {
         )}>
           <form id="invoice-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-24">
             {/* Basic Info */}
-            <div className="glass-card grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="glass-card grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Invoice Number</label>
                 <input {...register('number')} className="input-field w-full font-mono text-sm" placeholder="INV-001" />
                 {errors.number && <p className="text-red-500 text-[10px] uppercase font-bold">{errors.number.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-muted">Category</label>
+                <select {...register('category')} className="input-field w-full text-sm appearance-none bg-background">
+                  <option value="">No Category</option>
+                  <option value="Business">Business</option>
+                  <option value="Personal">Personal</option>
+                  <option value="Freelance">Freelance</option>
+                  <option value="Subscription">Subscription</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Invoice Date</label>
