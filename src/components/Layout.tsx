@@ -16,10 +16,13 @@ import {
   ChevronRight,
   X,
   Zap,
-  LayoutTemplate
+  HardDrive,
+  ExternalLink,
+  FolderSync
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
+import { WorkspaceGuardian, SaveIndicator } from './WorkspaceGuardian';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,6 +30,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const profile = useStore((state) => state.profile);
+  const { workspaceName, workspaceConnected, disconnectWorkspace } = useStore();
   const [showCommandPalette, setShowCommandPalette] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -46,7 +50,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden font-sans">
+      <WorkspaceGuardian />
+      
       {/* Command Palette Overlay */}
       {showCommandPalette && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4 bg-background/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -59,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   className="flex-1 bg-transparent border-none focus:outline-none text-lg"
                  />
                  <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded border border-white/10 text-[10px] font-bold text-muted uppercase">
-                    <span className="text-[14px]">â</span> K
+                    <span className="text-[14px]">⌘</span> K
                  </div>
               </div>
               <div className="p-2 space-y-1">
@@ -127,7 +133,40 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" collapsed={isCollapsed} />
         </nav>
 
-        <div className="p-4 mt-auto">
+        <div className="p-4 space-y-4 mt-auto">
+          {workspaceConnected && !isCollapsed && (
+            <div className="p-4 glass rounded-3xl border border-white/5 space-y-3 relative group overflow-hidden">
+              <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={disconnectWorkspace}
+                  className="p-1 hover:bg-white/5 rounded text-red-400"
+                  title="Disconnect Workspace"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <HardDrive size={16} />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Workspace</p>
+                  <p className="text-xs font-bold truncate">{workspaceName}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[8px] font-bold text-muted uppercase tracking-[0.2em] pt-2 border-t border-white/5">
+                <span className="flex items-center gap-1">
+                  <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                  Live Sync
+                </span>
+                <span className="flex items-center gap-1">
+                  <FolderSync size={10} />
+                  Excel DB
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className={`glass rounded-2xl transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'} flex items-center gap-3 overflow-hidden`}>
             <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden shrink-0">
               <img 
@@ -139,7 +178,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {!isCollapsed && (
               <div className="flex-1 overflow-hidden min-w-0">
                 <p className="text-sm font-medium truncate">{profile?.name || 'Guest User'}</p>
-                <p className="text-xs text-muted truncate">{profile?.email || 'guest@novabill.app'}</p>
+                <p className="text-xs text-muted truncate">{profile?.email || 'local@novabill.app'}</p>
               </div>
             )}
           </div>
@@ -169,18 +208,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
               <input 
                 type="text" 
-                placeholder="Search invoices, clients, tasks..." 
+                placeholder="Search across files..." 
                 className="w-full py-2.5 pl-12 pr-4 bg-white/5 border border-white/10 rounded-full text-sm focus:outline-none focus:border-primary/50 transition-all"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            <SaveIndicator />
+            <div className="h-6 w-[1px] bg-white/10 mx-1 md:mx-2" />
             <button className="p-2.5 rounded-full hover:bg-white/5 text-muted transition-all relative">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
             </button>
-            <div className="h-6 w-[1px] bg-white/10 mx-1 md:mx-2" />
             <NavLink to="/invoices/new" className="btn-primary py-2.5 px-3 md:px-6 flex items-center gap-2 text-xs md:text-sm">
               <PlusCircle size={18} />
               <span className="hidden md:inline">New Invoice</span>
@@ -208,12 +248,12 @@ const NavItem = ({ to, icon, label, collapsed }: { to: string; icon: React.React
   <NavLink
     to={to}
     className={({ isActive }) => `
-      flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative
-      ${isActive 
-        ? 'bg-primary/10 text-primary shadow-sm shadow-primary/5' 
-        : 'text-muted hover:text-white hover:bg-white/5'}
-      ${collapsed ? 'justify-center px-0' : ''}
-    `}
+    flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative
+    ${isActive 
+      ? 'bg-primary/10 text-primary shadow-sm shadow-primary/5' 
+      : 'text-muted hover:text-white hover:bg-white/5'}
+    ${collapsed ? 'justify-center px-0' : ''}
+  `}
   >
     <div className={`transition-transform duration-300 ${collapsed ? 'group-hover:scale-110' : ''}`}>
       {icon}
