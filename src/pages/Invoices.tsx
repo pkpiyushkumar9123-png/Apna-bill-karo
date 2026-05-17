@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 import { generateInvoicePDF } from '../services/pdfService.ts';
 import { motion, AnimatePresence } from 'motion/react';
 
-const STATUSES = ['draft', 'pending', 'paid', 'overdue'] as const;
+const STATUSES = ['draft', 'pending', 'partial', 'paid', 'overdue'] as const;
 
 const StatusSlider = ({ currentStatus, onUpdate, compact = false, className = '' }: { 
   currentStatus: string, 
@@ -41,7 +41,7 @@ const StatusSlider = ({ currentStatus, onUpdate, compact = false, className = ''
         className={`absolute ${compact ? 'inset-y-1' : 'inset-y-1.5'} rounded-xl bg-primary shadow-lg shadow-primary/20`}
         initial={false}
         animate={{ 
-          left: `${(STATUSES.indexOf(currentStatus as any) / STATUSES.length) * 100}%`,
+          left: `${(STATUSES.indexOf(currentStatus as any === 'partial' ? 'partial' : currentStatus as any) / STATUSES.length) * 100}%`,
           width: `${100 / STATUSES.length}%`
         }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -508,6 +508,42 @@ export const Invoices: React.FC = () => {
                     Edit
                   </NavLink>
                 </div>
+
+                {/* Payment Recording */}
+                {(selectedInvoice.status === 'partial' || selectedInvoice.status === 'paid') && (
+                  <div className="p-6 rounded-3xl bg-primary/5 border border-primary/20 space-y-4 animate-in fade-in slide-in-from-top-4">
+                     <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-primary">Record Payment</label>
+                        <span className="text-[10px] font-mono text-muted">Total: ${selectedInvoice.total.toFixed(2)}</span>
+                     </div>
+                     <div className="flex gap-3">
+                        <div className="relative flex-1">
+                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">$</span>
+                           <input 
+                              type="number"
+                              value={selectedInvoice.paidAmount || ''}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                updateInvoice({ 
+                                  ...selectedInvoice, 
+                                  paidAmount: val,
+                                  status: val >= selectedInvoice.total ? 'paid' : val > 0 ? 'partial' : selectedInvoice.status 
+                                });
+                              }}
+                              className="input-field w-full pl-8 py-3 text-sm font-black font-mono border-primary/20 focus:border-primary"
+                              placeholder="0.00"
+                           />
+                        </div>
+                        <button 
+                          onClick={() => updateInvoice({ ...selectedInvoice, paidAmount: selectedInvoice.total, status: 'paid' })}
+                          className="px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                        >
+                          Full
+                        </button>
+                     </div>
+                     <p className="text-[9px] text-muted italic">This amount will reflect as revenue in your accounting dashboard.</p>
+                  </div>
+                )}
 
                 {/* Status Slider Container */}
                 <div className="space-y-4 pt-4 border-t border-white/5">

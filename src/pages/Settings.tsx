@@ -26,7 +26,7 @@ import { useStore } from '../store/useStore.ts';
 import { DEFAULT_NOTE_PRESETS, DEFAULT_TERM_PRESETS } from '../constants/presets.ts';
 
 export const Settings: React.FC = () => {
-  const { profile, settings, updateProfile, updateSettings, init } = useStore();
+  const { profile, settings, updateProfile, updateSettings, isSaving } = useStore();
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!profile) return;
@@ -107,9 +107,17 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-12 pb-20">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
-        <p className="text-muted">Configure your business profile and application preferences.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
+          <p className="text-muted">Configure your business profile and application preferences.</p>
+        </div>
+        {isSaving && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse border border-primary/20">
+            <RefreshCw size={12} className="animate-spin" />
+            Saving to Workspace...
+          </div>
+        )}
       </div>
 
       <section className="space-y-6">

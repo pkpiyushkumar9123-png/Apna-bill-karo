@@ -28,7 +28,7 @@ export const ExcelService = {
         return {
           invoice_id: item.id,
           invoice_number: item.number,
-          customerId: item.customerId, // Keep for relational integrity
+          customerId: item.customerId, 
           invoice_date: item.date,
           due_date: item.dueDate,
           items: JSON.stringify(item.items || []),
@@ -36,7 +36,12 @@ export const ExcelService = {
           taxes: item.taxTotal,
           discount: item.discountTotal,
           total: item.total,
+          paid_amount: item.paidAmount || 0,
           payment_status: item.status,
+          type: item.type || 'invoice',
+          is_recurring: item.isRecurring || false,
+          recurring_frequency: item.recurringFrequency || '',
+          next_recurring_date: item.nextRecurringDate || 0,
           notes: item.notes || '',
           terms: item.terms || '',
           category: item.category || '',
@@ -54,8 +59,10 @@ export const ExcelService = {
           phone: item.phone || '',
           email: item.email,
           address: item.address || '',
+          company_name: item.companyName || '',
           gst_number: item.taxId || '',
           notes: item.notes || '',
+          tags: JSON.stringify(item.tags || []),
           created_at: item.createdAt
         };
       }
@@ -65,20 +72,49 @@ export const ExcelService = {
         return {
           product_id: item.id,
           product_name: item.name,
-          sku: item.id.split('-')[0].toUpperCase(),
+          sku: item.sku || '',
           category: item.category || '',
-          quantity: 1, // Default
+          quantity: item.stockLevel || 0,
+          min_stock: item.minStockLevel || 0,
           unit_price: item.price,
+          cost_price: item.costPrice || 0,
           tax_rate: item.taxRate,
           unit: item.unit || 'pcs',
           description: item.description || ''
         };
       }
 
-      // Default flattening
-      if (item.items && Array.isArray(item.items)) {
-        flattened.items = JSON.stringify(item.items);
+      // Handle Expense mapping
+      if ('amount' in item && 'paymentMethod' in item) {
+        return {
+          expense_id: item.id,
+          title: item.title,
+          category: item.category,
+          amount: item.amount,
+          payment_method: item.paymentMethod,
+          expense_date: item.date,
+          notes: item.notes || ''
+        };
       }
+
+      // Handle Settings/BusinessProfile mapping
+      if ('name' in item && 'currency' in item && !('price' in item) && !('number' in item)) {
+        return {
+          company_name: item.name,
+          email: item.email || '',
+          phone: item.phone || '',
+          address: item.address || '',
+          website: item.website || '',
+          tax_id: item.taxId || '',
+          currency: item.currency || 'INR',
+          logo_url: item.logoUrl || '',
+          signature: item.signature || '',
+          bank_name: item.bankName || '',
+          bank_account: item.bankAccount || '',
+          ifsc_code: item.ifscCode || ''
+        };
+      }
+
       return flattened;
     });
   },
@@ -106,7 +142,12 @@ export const ExcelService = {
           taxTotal: item.taxes,
           discountTotal: item.discount,
           total: item.total,
+          paidAmount: item.paid_amount,
           status: item.payment_status,
+          type: item.type,
+          isRecurring: item.is_recurring,
+          recurringFrequency: item.recurring_frequency,
+          nextRecurringDate: item.next_recurring_date,
           notes: item.notes,
           terms: item.terms,
           category: item.category,
@@ -125,8 +166,10 @@ export const ExcelService = {
           email: item.email,
           phone: item.phone,
           address: item.address,
+          companyName: item.company_name,
           taxId: item.gst_number,
           notes: item.notes,
+          tags: typeof item.tags === 'string' ? JSON.parse(item.tags) : [],
           createdAt: item.created_at
         } as any;
       }
@@ -136,12 +179,48 @@ export const ExcelService = {
         return {
           id: item.product_id,
           name: item.product_name,
+          sku: item.sku,
           price: item.unit_price,
+          costPrice: item.cost_price,
           taxRate: item.tax_rate,
           unit: item.unit,
+          stockLevel: item.quantity,
+          minStockLevel: item.min_stock,
           category: item.category,
           description: item.description,
           createdAt: Date.now()
+        } as any;
+      }
+
+      // Map Expense back
+      if (item.expense_id) {
+        return {
+          id: item.expense_id,
+          title: item.title,
+          category: item.category,
+          amount: item.amount,
+          paymentMethod: item.payment_method,
+          date: item.expense_date,
+          notes: item.notes,
+          updatedAt: Date.now()
+        } as any;
+      }
+
+      // Map Settings back
+      if (item.company_name && item.currency) {
+        return {
+          name: item.company_name,
+          email: item.email,
+          phone: item.phone,
+          address: item.address,
+          website: item.website,
+          taxId: item.tax_id,
+          currency: item.currency,
+          logoUrl: item.logo_url,
+          signature: item.signature,
+          bankName: item.bank_name,
+          bankAccount: item.bank_account,
+          ifscCode: item.ifsc_code
         } as any;
       }
 

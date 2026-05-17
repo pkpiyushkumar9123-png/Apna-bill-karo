@@ -11,7 +11,12 @@ import {
   Calendar,
   Plus,
   Users,
-  FileText
+  FileText,
+  ShoppingCart,
+  Wallet,
+  ArrowUpRight,
+  Package,
+  Zap
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -26,12 +31,45 @@ import {
   Cell
 } from 'recharts';
 import { useStore } from '../store/useStore.ts';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export const Dashboard: React.FC = () => {
-  const invoices = useStore((state) => state.invoices);
-  const customers = useStore((state) => state.customers);
+  const { invoices, customers, products, expenses, profile } = useStore();
   
+  const stats = useMemo(() => {
+    // Correct Revenue logic: Sum of all paid amounts
+    const totalRev = invoices.reduce((acc, i) => acc + (i.paidAmount || 0), 0);
+    const totalExp = expenses.reduce((acc, e) => acc + e.amount, 0);
+    const profit = totalRev - totalExp;
+    
+    // Monthly P&L
+    const now = new Date();
+    const mStart = startOfMonth(now).getTime();
+    const mEnd = endOfMonth(now).getTime();
+
+    const monthRev = invoices
+      .filter(i => i.date >= mStart && i.date <= mEnd)
+      .reduce((acc, i) => acc + (i.paidAmount || 0), 0);
+
+    const monthExp = expenses
+      .filter(e => e.date >= mStart && e.date <= mEnd)
+      .reduce((acc, e) => acc + e.amount, 0);
+
+    const receivables = invoices
+      .filter(i => i.status !== 'paid')
+      .reduce((acc, i) => acc + (i.total - (i.paidAmount || 0)), 0);
+
+    return {
+      profit,
+      monthProfit: monthRev - monthExp,
+      totalRev,
+      totalExp,
+      receivables,
+      invoiceCount: invoices.length,
+      customerCount: customers.length
+    };
+  }, [invoices, customers, expenses]);
+
   const chartData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
@@ -44,7 +82,7 @@ export const Dashboard: React.FC = () => {
         year: d.getFullYear(),
         name: months[d.getMonth()],
         revenue: 0,
-        count: 0
+        expense: 0
       });
     }
 
@@ -52,271 +90,201 @@ export const Dashboard: React.FC = () => {
       const invDate = new Date(inv.date);
       const dataPoint = last6Months.find(m => m.month === invDate.getMonth() && m.year === invDate.getFullYear());
       if (dataPoint) {
-        dataPoint.revenue += parseFloat(String(inv.total)) || 0;
-        dataPoint.count += 1;
+        dataPoint.revenue += (inv.paidAmount || 0);
+      }
+    });
+
+    expenses.forEach(exp => {
+      const expDate = new Date(exp.date);
+      const dataPoint = last6Months.find(m => m.month === expDate.getMonth() && m.year === expDate.getFullYear());
+      if (dataPoint) {
+        dataPoint.expense += exp.amount;
       }
     });
 
     return last6Months;
-  }, [invoices]);
+  }, [invoices, expenses]);
 
-  const insights = useMemo(() => {
-    const totalRevenue = invoices.reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    const paidRevenue = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    
-    const collectionRate = totalRevenue > 0 ? (paidRevenue / totalRevenue) * 100 : 0;
-    
-    // Customer Loyalty (Repeat customers)
-    const customerInvoicesCount: Record<string, number> = {};
-    invoices.forEach(inv => {
-      customerInvoicesCount[inv.customerId] = (customerInvoicesCount[inv.customerId] || 0) + 1;
-    });
-    const repeatCustomers = Object.values(customerInvoicesCount).filter(count => count > 1).length;
-    const loyaltyRate = customers.length > 0 ? (repeatCustomers / customers.length) * 100 : 0;
-
-    // Efficiency (Paid vs Pending ratio)
-    const paidCount = invoices.filter(i => i.status === 'paid').length;
-    const efficiencyRate = invoices.length > 0 ? (paidCount / invoices.length) * 100 : 0;
-
-    return {
-      collection: {
-        value: `${Math.round(collectionRate)}%`,
-        progress: collectionRate,
-        desc: collectionRate > 80 ? "Excellent cash flow this period." : "Follow up on pending payments."
-      },
-      loyalty: {
-        value: `${Math.round(loyaltyRate)}%`,
-        progress: loyaltyRate,
-        desc: `${repeatCustomers} repeat customers out of ${customers.length} total.`
-      },
-      efficiency: {
-        value: `${Math.round(efficiencyRate)}%`,
-        progress: efficiencyRate,
-        desc: `${paidCount} invoices cleared of ${invoices.length} total.`
-      }
-    };
-  }, [invoices, customers]);
-
-  const stats = useMemo(() => {
-    const total = invoices.reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    const pending = invoices.filter(i => i.status === 'pending').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    const paid = invoices.filter(i => i.status === 'paid').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    const overdue = invoices.filter(i => i.status === 'overdue').reduce((acc, inv) => acc + (parseFloat(String(inv.total)) || 0), 0);
-    
-    // Previous month comparison (simple)
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-    const currentMonthRevenue = invoices
-      .filter(inv => {
-        const d = new Date(inv.date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      })
-      .reduce((acc, inv) => acc + inv.total, 0);
-
-    const prevMonthRevenue = invoices
-      .filter(inv => {
-        const d = new Date(inv.date);
-        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
-      })
-      .reduce((acc, inv) => acc + inv.total, 0);
-
-    const revenueGrowth = prevMonthRevenue > 0 
-      ? ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 
-      : 0;
-    
-    return {
-      total: isNaN(total) ? 0 : total,
-      pending: isNaN(pending) ? 0 : pending,
-      paid: isNaN(paid) ? 0 : paid,
-      overdue: isNaN(overdue) ? 0 : overdue,
-      revenueGrowth: revenueGrowth.toFixed(1),
-      count: invoices.length,
-      customerCount: customers.length
-    };
-  }, [invoices, customers]);
+  const lowStockProducts = useMemo(() => {
+    return products.map(p => {
+      const pendingQty = invoices
+        .filter(inv => inv.status !== 'paid' && inv.status !== 'draft')
+        .reduce((sum, inv) => {
+          const item = inv.items.find(i => i.productId === p.id);
+          return sum + (item?.quantity || 0);
+        }, 0);
+      return { ...p, available: Math.max(0, p.stockLevel - pendingQty) };
+    }).filter(p => p.available <= p.minStockLevel).slice(0, 4);
+  }, [products, invoices]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Business Overview</h1>
-          <p className="text-muted">Welcome back! Here's what's happening with your business.</p>
+          <h1 className="text-4xl font-black tracking-tight mb-1 italic">Business Pulse</h1>
+          <p className="text-muted text-sm font-bold uppercase tracking-widest">Real-time local metrics from your workspace</p>
         </div>
         <div className="flex items-center gap-3">
-          <NavLink to="/invoices/new" className="btn-primary py-2.5 px-4 flex items-center gap-2 text-xs shadow-lg shadow-primary/30">
-            <Plus size={16} />
-            Quick Invoice
+          <NavLink to="/invoices/new" className="btn-primary py-3 px-6 flex items-center gap-2 text-xs shadow-lg shadow-primary/30 rounded-2xl bg-primary text-white">
+            <Plus size={18} />
+            Create Invoice
           </NavLink>
-          <div className="flex items-center gap-2 glass px-4 py-2 rounded-xl text-sm font-medium">
+          <div className="flex items-center gap-2 glass px-4 py-3 rounded-2xl text-sm font-bold border border-white/5 bg-white/5">
             <Calendar size={18} className="text-primary" />
-            {format(new Date(), 'MMMM dd, yyyy')}
+            {format(new Date(), 'MMMM dd')}
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
-          title="Total Revenue" 
-          value={`$${stats.total.toLocaleString()}`} 
-          trend={`${stats.revenueGrowth}%`} 
-          isPositive={parseFloat(stats.revenueGrowth) >= 0} 
-          icon={<DollarSign className="text-primary" />} 
+          title="Total Profit" 
+          value={`${profile?.currency || 'INR'} ${stats.profit.toLocaleString()}`} 
+          trend={`${stats.monthProfit >= 0 ? '+' : ''}${stats.monthProfit.toLocaleString()} this month`} 
+          isPositive={stats.monthProfit >= 0} 
+          icon={<Zap size={20} className="text-primary fill-primary" />} 
         />
         <StatCard 
-          title="Pending Payments" 
-          value={`$${stats.pending.toLocaleString()}`} 
-          trend="In Focus" 
+          title="Accounts Receivable" 
+          value={`${profile?.currency || 'INR'} ${stats.receivables.toLocaleString()}`} 
+          trend="Pending Collection" 
           isPositive={true} 
           icon={<Clock className="text-yellow-500" />} 
         />
         <StatCard 
-          title="Successfully Paid" 
-          value={`$${stats.paid.toLocaleString()}`} 
-          trend="Keep going" 
+          title="Total Revenue" 
+          value={`${profile?.currency || 'INR'} ${stats.totalRev.toLocaleString()}`} 
+          trend="Lifetime" 
           isPositive={true} 
-          icon={<CheckCircle2 className="text-green-500" />} 
+          icon={<TrendingUp className="text-green-500" />} 
         />
         <StatCard 
-          title="Overdue Balance" 
-          value={`$${stats.overdue.toLocaleString()}`} 
-          trend="Critical" 
+          title="Total Expenses" 
+          value={`${profile?.currency || 'INR'} ${stats.totalExp.toLocaleString()}`} 
+          trend="Lifetime" 
           isPositive={false} 
-          icon={<AlertCircle className="text-red-500" />} 
+          icon={<Wallet className="text-red-500" />} 
         />
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 glass-card h-[400px]">
+        {/* Performance Chart */}
+        <div className="lg:col-span-2 glass-card h-[450px]">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h3 className="font-bold text-lg">Revenue Forecast</h3>
-              <p className="text-xs text-muted">Monthly performance analytics</p>
+              <h3 className="font-black text-xl italic">Cash Flow Performance</h3>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Inflow vs Outflow (Last 6 Months)</p>
             </div>
-            <button className="p-2 hover:bg-white/5 rounded-full transition-all">
-              <MoreVertical size={18} />
-            </button>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-primary uppercase">
+                <div className="w-2 h-2 rounded-full bg-primary" /> Inflow
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-black tracking-widest text-muted uppercase">
+                <div className="w-2 h-2 rounded-full bg-white/20" /> Outflow
+              </div>
+            </div>
           </div>
-          <div className="h-[280px] w-full">
+          <div className="h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FF4444" stopOpacity={0.3}/>
+                    <stop offset="5%" stopColor="#FF4444" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#FF4444" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#8E9299" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  dy={10}
-                />
-                <YAxis 
-                  stroke="#8E9299" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(value) => `$${value}`}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis dataKey="name" stroke="#8E9299" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                <YAxis stroke="#8E9299" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#141414', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fff' }}
-                  formatter={(value) => [`$${parseFloat(value as string).toLocaleString()}`, 'Revenue']}
+                  contentStyle={{ backgroundColor: '#141414', border: '1px solid #ffffff10', borderRadius: '16px' }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#FF4444" 
-                  strokeWidth={3} 
-                  fillOpacity={1} 
-                  fill="url(#colorRev)" 
-                  animationDuration={1500}
-                />
+                <Area type="monotone" dataKey="revenue" stroke="#FF4444" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                <Area type="monotone" dataKey="expense" stroke="#333" strokeDasharray="5 5" fill="transparent" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="glass-card">
-          <div className="mb-6">
-            <h3 className="font-bold text-lg">Quick Insights</h3>
-            <p className="text-xs text-muted">AI-powered business health</p>
-          </div>
-          <div className="space-y-6">
-            <InsightItem 
-              label="Collection Rate" 
-              value={insights.collection.value} 
-              progress={insights.collection.progress} 
-              color="bg-primary" 
-              desc={insights.collection.desc}
-            />
-            <InsightItem 
-              label="Customer Loyalty" 
-              value={insights.loyalty.value} 
-              progress={insights.loyalty.progress} 
-              color="bg-green-500" 
-              desc={insights.loyalty.desc}
-            />
-            <InsightItem 
-              label="Paid Efficiency" 
-              value={insights.efficiency.value} 
-              progress={insights.efficiency.progress} 
-              color="bg-blue-500" 
-              desc={insights.efficiency.desc}
-            />
-            
-            <div className="pt-6 border-t border-white/5">
-              <button className="w-full btn-secondary font-bold text-xs uppercase tracking-widest py-4">
-                View Detailed Report
-              </button>
+        {/* Low Stock Alerts */}
+        <div className="glass-card flex flex-col">
+          <div className="mb-6 flex justify-between items-center">
+            <div>
+              <h3 className="font-black text-xl italic">Stock Alerts</h3>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Inventory requires attention</p>
             </div>
+            <Package size={24} className="text-primary opacity-50" />
           </div>
+          
+          <div className="space-y-4 flex-1">
+            {lowStockProducts.length > 0 ? lowStockProducts.map(product => {
+              const stockPercentage = Math.min(100, (product.stockLevel / (product.minStockLevel || 1)) * 50);
+              return (
+                <div key={product.id} className="p-4 bg-white/5 rounded-3xl border border-white/5 space-y-3 group hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-xs font-bold truncate">{product.name}</p>
+                      <p className="text-[10px] text-muted font-mono">{product.sku}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-primary">{product.available} available</p>
+                      <p className="text-[8px] font-bold text-muted uppercase">Min: {product.minStockLevel}</p>
+                    </div>
+                  </div>
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${product.available <= product.minStockLevel ? 'bg-red-500' : 'bg-primary'}`}
+                      style={{ width: `${Math.min(100, (product.available / (product.minStockLevel || 1)) * 50)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-12">
+                <CheckCircle2 size={40} className="mb-4" />
+                <p className="text-xs font-bold uppercase tracking-widest">Inventory Healthy</p>
+              </div>
+            )}
+          </div>
+          
+          <NavLink to="/products" className="mt-6 w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-center transition-all">
+            Manage Inventory
+          </NavLink>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="glass-card !p-0 overflow-hidden border-none bg-transparent lg:glass-card lg:!p-6 lg:border lg:bg-white/5">
-        <div className="flex justify-between items-center mb-8 px-6 lg:px-0 pt-6 lg:pt-0">
-          <h3 className="font-bold text-lg">Recent Invoices</h3>
-          <NavLink to="/invoices" className="text-primary text-sm font-bold hover:underline">View All</NavLink>
+      {/* Recent Activity Mini-Table */}
+      <div className="glass-card !p-8">
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xl font-black italic">Recent Transactions</h3>
+          <NavLink to="/invoices" className="text-xs font-bold uppercase tracking-widest text-primary hover:underline flex items-center gap-2">
+            View Register <ArrowUpRight size={14} />
+          </NavLink>
         </div>
-        
-        {/* Desktop Table */}
-        <div className="hidden lg:block overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/5">
-                <th className="pb-4 text-xs font-bold uppercase tracking-widest text-muted">Invoice No.</th>
-                <th className="pb-4 text-xs font-bold uppercase tracking-widest text-muted">Client</th>
-                <th className="pb-4 text-xs font-bold uppercase tracking-widest text-muted">Status</th>
-                <th className="pb-4 text-xs font-bold uppercase tracking-widest text-muted">Date</th>
-                <th className="pb-4 text-xs font-bold uppercase tracking-widest text-muted">Amount</th>
+                <th className="pb-4 text-[10px] font-bold text-muted uppercase tracking-[0.2em]">Reference</th>
+                <th className="pb-4 text-[10px] font-bold text-muted uppercase tracking-[0.2em]">Contact</th>
+                <th className="pb-4 text-[10px] font-bold text-muted uppercase tracking-[0.2em]">Status</th>
+                <th className="pb-4 text-[10px] font-bold text-muted uppercase tracking-[0.2em] text-right">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {invoices.length > 0 ? invoices.slice(0, 5).map((inv) => (
-                <tr key={inv.id} className="hover:bg-white/5 transition-colors cursor-pointer group">
-                  <td className="py-4 font-mono text-sm">#{inv.number}</td>
+              {invoices.slice(0, 5).map(inv => (
+                <tr key={inv.id} className="group">
                   <td className="py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">
-                        {inv.customerId.charAt(0)}
-                      </div>
-                      <span className="text-sm font-medium">Customer {inv.customerId.slice(-4)}</span>
-                    </div>
+                    <p className="text-sm font-bold group-hover:text-primary transition-colors">#{inv.number}</p>
+                    <p className="text-[10px] text-muted uppercase tracking-widest">{format(inv.date, 'MMM dd')}</p>
                   </td>
                   <td className="py-4">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                    <p className="text-sm font-medium">Customer {inv.customerId.slice(-4)}</p>
+                  </td>
+                  <td className="py-4">
+                    <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${
                       inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
                       inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
                       'bg-red-500/10 text-red-500'
@@ -324,52 +292,13 @@ export const Dashboard: React.FC = () => {
                       {inv.status}
                     </span>
                   </td>
-                  <td className="py-4 text-sm text-muted">{format(inv.date, 'MMM dd, yyyy')}</td>
-                  <td className="py-4 font-mono font-bold">${inv.total.toFixed(2)}</td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-muted text-sm italic">
-                    No recent activity. Start by creating an invoice!
+                  <td className="py-4 text-right">
+                    <p className="text-sm font-black font-mono">${inv.total.toFixed(2)}</p>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Mobile View */}
-        <div className="lg:hidden space-y-4 px-6 pb-6">
-          {invoices.length > 0 ? invoices.slice(0, 5).map((inv) => (
-            <div key={inv.id} className="glass-card !p-4 flex flex-col gap-3">
-               <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs font-bold tracking-tight mb-1">#{inv.number}</p>
-                    <p className="text-[10px] text-muted">{format(inv.date, 'MMM dd, yyyy')}</p>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                    inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
-                    inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
-                    'bg-red-500/10 text-red-500'
-                  }`}>
-                    {inv.status}
-                  </span>
-               </div>
-               <div className="flex justify-between items-end">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold">
-                        {inv.customerId.charAt(0)}
-                    </div>
-                    <span className="text-[10px] text-muted">Customer {inv.customerId.slice(-4)}</span>
-                  </div>
-                  <p className="text-sm font-black font-mono tracking-tighter">${inv.total.toFixed(2)}</p>
-               </div>
-            </div>
-          )) : (
-            <div className="py-8 text-center text-muted text-xs italic">
-                No recent activity.
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -377,30 +306,16 @@ export const Dashboard: React.FC = () => {
 };
 
 const StatCard = ({ title, value, trend, isPositive, icon }: any) => (
-  <div className="glass-card hover:translate-y-[-4px]">
+  <div className="glass-card hover:translate-y-[-4px] group">
     <div className="flex justify-between items-start mb-4">
-      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+      <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:border-primary/20 transition-all">
         {icon}
       </div>
-      <div className={`flex items-center gap-1 text-xs font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+      <div className={`text-[10px] font-black uppercase tracking-widest ${isPositive ? 'text-green-500' : 'text-primary'}`}>
         {trend}
       </div>
     </div>
-    <div className="text-2xl font-black tracking-tighter font-mono">{value}</div>
-    <div className="text-xs text-muted font-medium mt-1 uppercase tracking-widest">{title}</div>
-  </div>
-);
-
-const InsightItem = ({ label, value, progress, color, desc }: any) => (
-  <div>
-    <div className="flex justify-between items-end mb-2">
-      <span className="text-xs font-bold uppercase tracking-widest text-muted">{label}</span>
-      <span className="text-sm font-black font-mono">{value}</span>
-    </div>
-    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-3">
-      <div className={`h-full ${color}`} style={{ width: `${progress}%` }} />
-    </div>
-    <p className="text-[10px] text-muted leading-relaxed font-medium">{desc}</p>
+    <div className="text-2xl font-black tracking-tight">{value}</div>
+    <div className="text-[10px] text-muted font-bold mt-1 uppercase tracking-[0.2em]">{title}</div>
   </div>
 );

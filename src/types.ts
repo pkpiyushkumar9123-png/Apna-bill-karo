@@ -2,7 +2,7 @@
  * Types for NovaBill Application
  */
 
-export type InvoiceStatus = 'draft' | 'pending' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'pending' | 'paid' | 'partial' | 'overdue' | 'cancelled';
 
 export interface BusinessProfile {
   id: string;
@@ -27,6 +27,8 @@ export interface Customer {
   companyName?: string;
   taxId?: string;
   createdAt: number;
+  tags?: string[];
+  notes?: string;
 }
 
 export interface Product {
@@ -38,6 +40,11 @@ export interface Product {
   unit: string;
   category?: string;
   createdAt: number;
+  // Phase 2
+  sku: string;
+  stockLevel: number;
+  minStockLevel: number;
+  costPrice?: number;
 }
 
 export interface InvoiceItem {
@@ -71,12 +78,31 @@ export interface Invoice {
   currency: string;
   createdAt: number;
   updatedAt: number;
+  // Phase 2
+  paidAmount?: number;
+  isRecurring?: boolean;
+  recurringFrequency?: 'weekly' | 'monthly' | 'yearly';
+  nextRecurringDate?: number;
+  type?: 'invoice' | 'quotation' | 'estimate' | 'purchase_order' | 'credit_note';
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  date: number;
+  paymentMethod: string;
+  notes?: string;
+  updatedAt: number;
 }
 
 export interface AppSettings {
+  id?: string;
   theme: 'light' | 'dark' | 'glass';
   accentColor: string;
   language: string;
   currencyDefault: string;
   density: 'comfortable' | 'compact';
+  autoBackup: boolean;
 }

@@ -1,6 +1,6 @@
 {
-  "name": "apna-bill-karo",
-  "description": "Premium Invoicing & Business Management for the Indian Market. Billing Simplified, Business Amplified.",
+  "name": "NovaBill",
+  "description": "Professional-grade business management system with advanced invoicing, inventory tracking, CRM, and accounting. Fully local, browser-based, and Excel-driven.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

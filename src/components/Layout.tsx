@@ -18,7 +18,10 @@ import {
   Zap,
   HardDrive,
   ExternalLink,
-  FolderSync
+  FolderSync,
+  ShoppingCart,
+  Receipt,
+  Wallet
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
@@ -125,11 +128,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-hidden">
           <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" collapsed={isCollapsed} />
-          <NavItem to="/invoices/new" icon={<PlusCircle size={20} />} label="Create Invoice" collapsed={isCollapsed} />
-          <NavItem to="/invoices" icon={<FileText size={20} />} label="Manage Invoice" collapsed={isCollapsed} />
+          <NavItem to="/invoices" icon={<FileText size={20} />} label="Invoices" collapsed={isCollapsed} />
+          <NavItem to="/expenses" icon={<Wallet size={20} />} label="Expenses" collapsed={isCollapsed} />
           <NavItem to="/customers" icon={<Users size={20} />} label="Customers" collapsed={isCollapsed} />
-          <NavItem to="/products" icon={<Package size={20} />} label="Products" collapsed={isCollapsed} />
-          <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" collapsed={isCollapsed} />
+          <NavItem to="/products" icon={<Package size={20} />} label="Inventory" collapsed={isCollapsed} />
+          <NavItem to="/reports" icon={<BarChart3 size={20} />} label="Accounting" collapsed={isCollapsed} />
           <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" collapsed={isCollapsed} />
         </nav>
 

@@ -9,7 +9,8 @@ import { Invoices } from './pages/Invoices.tsx';
 import { InvoiceEditor } from './pages/InvoiceEditor.tsx';
 import { Customers } from './pages/Customers.tsx';
 import { Products } from './pages/Products.tsx';
-import { Analytics } from './pages/Analytics.tsx';
+import { Expenses } from './pages/Expenses.tsx';
+import { Reports } from './pages/Reports.tsx';
 import { Settings } from './pages/Settings.tsx';
 import { Templates } from './pages/Templates.tsx';
 
@@ -45,7 +46,8 @@ export default function App() {
         <Route path="/invoices/:id" element={<Layout><InvoiceEditor /></Layout>} />
         <Route path="/customers" element={<Layout><Customers /></Layout>} />
         <Route path="/products" element={<Layout><Products /></Layout>} />
-        <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
+        <Route path="/expenses" element={<Layout><Expenses /></Layout>} />
+        <Route path="/reports" element={<Layout><Reports /></Layout>} />
         <Route path="/templates" element={<Layout><Templates /></Layout>} />
         <Route path="/settings" element={<Layout><Settings /></Layout>} />
         

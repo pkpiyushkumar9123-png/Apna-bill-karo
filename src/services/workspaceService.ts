@@ -127,28 +127,56 @@ export class WorkspaceService {
   /**
    * Entity High-level Sync
    */
-  static async syncData(key: 'invoices' | 'customers' | 'products' | 'businesses', data: any[]) {
+  static async syncData(key: 'invoices' | 'customers' | 'products' | 'businesses' | 'expenses', data: any[]) {
     const buffer = ExcelService.generateExcelBuffer(data, key);
     await this.saveFile(`${key}.xlsx`, buffer);
   }
 
-  static async loadData<T>(key: 'invoices' | 'customers' | 'products' | 'businesses'): Promise<T[]> {
+  static async loadData<T>(key: 'invoices' | 'customers' | 'products' | 'businesses' | 'expenses'): Promise<T[]> {
     const buffer = await this.readFile(`${key}.xlsx`);
     if (!buffer || typeof buffer === 'string') return [];
     return ExcelService.parseExcelBuffer<T>(buffer);
   }
 
-  static async saveSettings(settings: AppSettings) {
-    await this.saveFile('settings.json', JSON.stringify(settings, null, 2));
+  static async saveSettings(settings: AppSettings & { profile?: BusinessProfile }) {
+    if (settings.profile) {
+      const buffer = ExcelService.generateExcelBuffer([settings.profile], 'profile');
+      await this.saveFile('settings.xlsx', buffer);
+    }
+    
+    await this.saveFile('config.json', JSON.stringify({ 
+      theme: settings.theme, 
+      accentColor: settings.accentColor, 
+      density: settings.density,
+      lastSync: Date.now() 
+    }));
   }
 
-  static async loadSettings(): Promise<AppSettings | null> {
-    const text = await this.readFile('settings.json');
-    if (!text || typeof text !== 'string') return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return null;
+  static async loadSettings(): Promise<(AppSettings & { profile: BusinessProfile }) | null> {
+    const buffer = await this.readFile('settings.xlsx');
+    if (!buffer || typeof buffer === 'string') return null;
+    
+    const profile = ExcelService.parseExcelBuffer<BusinessProfile>(buffer)[0];
+    const configText = await this.readFile('config.json');
+    let config: AppSettings = { 
+      theme: 'dark', 
+      accentColor: '#FF4444', 
+      density: 'comfortable', 
+      language: 'en', 
+      currencyDefault: 'INR', 
+      autoBackup: true 
+    };
+    
+    if (configText && typeof configText === 'string') {
+      try { 
+        const parsed = JSON.parse(configText); 
+        config = { ...config, ...parsed };
+      } catch {}
     }
+
+    if (profile) {
+      return { ...config, profile };
+    }
+    return null;
   }
 }

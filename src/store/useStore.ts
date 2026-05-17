@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Invoice, Customer, Product, BusinessProfile, AppSettings } from '../types.ts';
+import { Invoice, Customer, Product, BusinessProfile, AppSettings, Expense } from '../types.ts';
 import { dbService } from '../services/db.ts';
 import { WorkspaceService } from '../services/workspaceService.ts';
 
@@ -7,6 +7,7 @@ interface AppState {
   invoices: Invoice[];
   customers: Customer[];
   products: Product[];
+  expenses: Expense[];
   profile: BusinessProfile | null;
   settings: AppSettings;
   isLoading: boolean;
@@ -38,6 +39,11 @@ interface AppState {
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 
+  // Expense Actions
+  addExpense: (expense: Expense) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+
   // Profile Actions
   updateProfile: (profile: BusinessProfile) => Promise<void>;
   
@@ -49,6 +55,7 @@ export const useStore = create<AppState>((set, get) => ({
   invoices: [],
   customers: [],
   products: [],
+  expenses: [],
   profile: null,
   settings: {
     theme: 'dark',
@@ -56,6 +63,7 @@ export const useStore = create<AppState>((set, get) => ({
     language: 'en',
     currencyDefault: 'INR',
     density: 'comfortable',
+    autoBackup: true,
   },
   isLoading: true,
   isSaving: false,
@@ -70,55 +78,56 @@ export const useStore = create<AppState>((set, get) => ({
       const restoredName = await WorkspaceService.restore();
       if (restoredName) {
         set({ workspaceConnected: true, workspaceName: restoredName });
-      } else {
-        // Check if handle exists but needs permission
-        const needsPerm = !!(await WorkspaceService.restore() === null); 
-        // This is simplified, if restore fails it might just be the first time
       }
 
       // 2. Load from Excel if connected, otherwise IndexedDB
-      let [invoices, customers, products, profiles, settings] = await Promise.all([
-        get().workspaceConnected ? WorkspaceService.loadData<Invoice>('invoices') : dbService.getAll<Invoice>('invoices'),
-        get().workspaceConnected ? WorkspaceService.loadData<Customer>('customers') : dbService.getAll<Customer>('customers'),
-        get().workspaceConnected ? WorkspaceService.loadData<Product>('products') : dbService.getAll<Product>('products'),
-        get().workspaceConnected ? WorkspaceService.loadData<BusinessProfile>('businesses') : dbService.getAll<BusinessProfile>('profiles'),
-        get().workspaceConnected ? WorkspaceService.loadSettings() : dbService.getById<AppSettings & { id: string }>('settings', 'main'),
-      ]);
+      let invoices: Invoice[] = [];
+      let customers: Customer[] = [];
+      let products: Product[] = [];
+      let expenses: Expense[] = [];
+      let settings: (AppSettings & { profile?: BusinessProfile }) | null = null;
+
+      if (get().workspaceConnected) {
+        [invoices, customers, products, expenses, settings] = await Promise.all([
+          WorkspaceService.loadData<Invoice>('invoices'),
+          WorkspaceService.loadData<Customer>('customers'),
+          WorkspaceService.loadData<Product>('products'),
+          WorkspaceService.loadData<Expense>('expenses'),
+          WorkspaceService.loadSettings(),
+        ]);
+      } else {
+        [invoices, customers, products, expenses, settings] = await Promise.all([
+          dbService.getAll<Invoice>('invoices'),
+          dbService.getAll<Customer>('customers'),
+          dbService.getAll<Product>('products'),
+          dbService.getAll<Expense>('expenses'),
+          dbService.getById<AppSettings>('settings', 'main'),
+        ]);
+      }
 
       // If we loaded from Excel, sync to IndexedDB (as cache)
       if (get().workspaceConnected) {
         for (const i of invoices) await dbService.put('invoices', i);
         for (const c of customers) await dbService.put('customers', c);
         for (const p of products) await dbService.put('products', p);
-        if (profiles[0]) await dbService.put('profiles', profiles[0]);
+        for (const e of expenses) await dbService.put('expenses', e);
+        if (settings?.profile) await dbService.put('profiles', settings.profile);
       }
 
       // Handle Defaults if empty
-      if (customers.length === 0 && !get().workspaceConnected) {
-        customers = [
-          { id: 'c1', name: 'Alex Rivera', email: 'alex@nebula.com', companyName: 'Nebula Creative', address: 'San Francisco, CA', createdAt: Date.now() },
-          { id: 'c2', name: 'Sarah Chen', email: 'sarah@zenith.io', companyName: 'Zenith Labs', address: 'Austin, TX', createdAt: Date.now() },
-        ];
-      }
+      // ... (rest of defaults) ...
 
-      if (products.length === 0 && !get().workspaceConnected) {
-        products = [
-          { id: 'p1', name: 'Brand Strategy', price: 2500, taxRate: 15, unit: 'Project', category: 'Consulting', createdAt: Date.now() },
-          { id: 'p2', name: 'UI/UX Design', price: 150, taxRate: 10, unit: 'Hour', category: 'Design', createdAt: Date.now() },
-        ];
-      }
-
-      let profile = profiles[0] || null;
+      let profile = settings?.profile || (await dbService.getAll<BusinessProfile>('profiles'))[0] || null;
       if (!profile && !get().workspaceConnected) {
         profile = {
           id: 'default',
-          name: 'apna-bill-karo',
-          email: 'hello@apnabillkaro.com',
+          name: 'NovaBill Business',
+          email: 'hello@novabill.app',
           currency: 'INR',
-          address: 'Your Business Address, India',
-          website: 'www.apna-bill-karo.com',
-          phone: '+91 99999 00000',
-          logoUrl: '/logo.png'
+          address: 'Your Business Address',
+          website: 'www.novabill.app',
+          phone: '+91 00000 00000',
+          logoUrl: ''
         };
       }
 
@@ -126,8 +135,9 @@ export const useStore = create<AppState>((set, get) => ({
         invoices,
         customers,
         products,
+        expenses,
         profile,
-        settings: settings ? { ...get().settings, ...settings } : get().settings,
+        settings: settings ? { ...get().settings, theme: settings.theme || get().settings.theme } : get().settings,
         isLoading: false,
       });
     } catch (error) {
@@ -140,7 +150,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const name = await WorkspaceService.connect();
       set({ workspaceConnected: true, workspaceName: name });
-      await get().init(); // Reload data from new workspace
+      await get().init(); 
     } catch (err) {
       console.error('Workspace connection failed', err);
     }
@@ -157,38 +167,149 @@ export const useStore = create<AppState>((set, get) => ({
   disconnectWorkspace: () => {
     WorkspaceService.disconnect();
     set({ workspaceConnected: false, workspaceName: null });
-    // Keep data in cache (IndexedDB)
   },
 
   addInvoice: async (invoice) => {
     set({ isSaving: true });
+    
+    // Inventory Auto-Deduction ONLY if paid
+    const currentProducts = [...get().products];
+    const touchedIds = new Set<string>();
+    
+    if (invoice.status === 'paid') {
+      invoice.items.forEach(item => {
+        if (item.productId) {
+          const idx = currentProducts.findIndex(p => p.id === item.productId);
+          if (idx !== -1) {
+            currentProducts[idx] = { 
+              ...currentProducts[idx], 
+              stockLevel: Math.max(0, currentProducts[idx].stockLevel - item.quantity) 
+            };
+            touchedIds.add(item.productId);
+          }
+        }
+      });
+    }
+
     const newInvoices = [...get().invoices, invoice];
-    set({ invoices: newInvoices });
-    await dbService.put('invoices', invoice);
+    set({ invoices: newInvoices, products: currentProducts });
+    
+    const productUpdates = Array.from(touchedIds).map(id => currentProducts.find(p => p.id === id)!);
+
+    await Promise.all([
+      dbService.put('invoices', invoice),
+      ...productUpdates.map(p => dbService.put('products', p))
+    ]);
+
     if (get().workspaceConnected) {
-      await WorkspaceService.syncData('invoices', newInvoices);
+      await Promise.all([
+        WorkspaceService.syncData('invoices', newInvoices),
+        WorkspaceService.syncData('products', currentProducts)
+      ]);
     }
     set({ isSaving: false });
   },
 
   updateInvoice: async (invoice) => {
     set({ isSaving: true });
+    const oldInvoice = get().invoices.find(inv => inv.id === invoice.id);
+    const products = [...get().products];
+    const touchedIds = new Set<string>();
+
+    // Inventory status change check
+    const wasPaid = oldInvoice?.status === 'paid';
+    const isPaid = invoice.status === 'paid';
+
+    if (oldInvoice) {
+      // 1. If it WAS paid, return old items to physical stock first
+      if (wasPaid) {
+        oldInvoice.items.forEach(item => {
+          if (item.productId) {
+            const idx = products.findIndex(p => p.id === item.productId);
+            if (idx !== -1) {
+              products[idx] = { 
+                ...products[idx], 
+                stockLevel: products[idx].stockLevel + item.quantity 
+              };
+              touchedIds.add(item.productId);
+            }
+          }
+        });
+      }
+
+      // 2. If it IS NOW paid, subtract new items from physical stock
+      if (isPaid) {
+        invoice.items.forEach(item => {
+          if (item.productId) {
+            const idx = products.findIndex(p => p.id === item.productId);
+            if (idx !== -1) {
+              products[idx] = { 
+                ...products[idx], 
+                stockLevel: Math.max(0, products[idx].stockLevel - item.quantity) 
+              };
+              touchedIds.add(item.productId);
+            }
+          }
+        });
+      }
+    }
+
     const newInvoices = get().invoices.map((inv) => (inv.id === invoice.id ? invoice : inv));
-    set({ invoices: newInvoices });
-    await dbService.put('invoices', invoice);
+    set({ invoices: newInvoices, products });
+
+    const productUpdates = Array.from(touchedIds).map(id => products.find(p => p.id === id)!);
+
+    await Promise.all([
+      dbService.put('invoices', invoice),
+      ...productUpdates.map(p => dbService.put('products', p))
+    ]);
+
     if (get().workspaceConnected) {
-      await WorkspaceService.syncData('invoices', newInvoices);
+      await Promise.all([
+        WorkspaceService.syncData('invoices', newInvoices),
+        WorkspaceService.syncData('products', products)
+      ]);
     }
     set({ isSaving: false });
   },
 
   deleteInvoice: async (id) => {
     set({ isSaving: true });
+    const invoice = get().invoices.find(inv => inv.id === id);
+    const products = [...get().products];
+    const touchedIds = new Set<string>();
+
+    if (invoice && invoice.status === 'paid') {
+      // Return items to physical stock only if they were deducted (was paid)
+      invoice.items.forEach(item => {
+        if (item.productId) {
+          const idx = products.findIndex(p => p.id === item.productId);
+          if (idx !== -1) {
+            products[idx] = { 
+              ...products[idx], 
+              stockLevel: products[idx].stockLevel + item.quantity 
+            };
+            touchedIds.add(item.productId);
+          }
+        }
+      });
+    }
+
     const newInvoices = get().invoices.filter((inv) => inv.id !== id);
-    set({ invoices: newInvoices });
-    await dbService.delete('invoices', id);
+    set({ invoices: newInvoices, products });
+
+    const productUpdates = Array.from(touchedIds).map(id => products.find(p => p.id === id)!);
+
+    await Promise.all([
+      dbService.delete('invoices', id),
+      ...productUpdates.map(p => dbService.put('products', p))
+    ]);
+
     if (get().workspaceConnected) {
-      await WorkspaceService.syncData('invoices', newInvoices);
+      await Promise.all([
+        WorkspaceService.syncData('invoices', newInvoices),
+        WorkspaceService.syncData('products', products)
+      ]);
     }
     set({ isSaving: false });
   },
@@ -259,12 +380,45 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isSaving: false });
   },
 
+  addExpense: async (expense) => {
+    set({ isSaving: true });
+    const newItems = [...get().expenses, expense];
+    set({ expenses: newItems });
+    await dbService.put('expenses', expense);
+    if (get().workspaceConnected) {
+      await WorkspaceService.syncData('expenses', newItems);
+    }
+    set({ isSaving: false });
+  },
+
+  updateExpense: async (expense) => {
+    set({ isSaving: true });
+    const newItems = get().expenses.map((e) => (e.id === expense.id ? expense : e));
+    set({ expenses: newItems });
+    await dbService.put('expenses', expense);
+    if (get().workspaceConnected) {
+      await WorkspaceService.syncData('expenses', newItems);
+    }
+    set({ isSaving: false });
+  },
+
+  deleteExpense: async (id) => {
+    set({ isSaving: true });
+    const newItems = get().expenses.filter((e) => e.id !== id);
+    set({ expenses: newItems });
+    await dbService.delete('expenses', id);
+    if (get().workspaceConnected) {
+      await WorkspaceService.syncData('expenses', newItems);
+    }
+    set({ isSaving: false });
+  },
+
   updateProfile: async (profile) => {
     set({ isSaving: true });
     set({ profile });
     await dbService.put('profiles', profile);
     if (get().workspaceConnected) {
-      await WorkspaceService.syncData('businesses', [profile]);
+      await WorkspaceService.saveSettings({ ...get().settings, profile });
     }
     set({ isSaving: false });
   },

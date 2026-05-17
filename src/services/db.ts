@@ -1,8 +1,8 @@
 import { openDB, IDBPDatabase } from 'idb';
-import { Invoice, Customer, Product, BusinessProfile, AppSettings } from '../types.ts';
+import { Invoice, Customer, Product, BusinessProfile, AppSettings, Expense } from '../types.ts';
 
 const DB_NAME = 'novabill_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Increment version for new store
 
 export interface NovaBillDB {
   invoices: Invoice;
@@ -10,6 +10,7 @@ export interface NovaBillDB {
   products: Product;
   profiles: BusinessProfile;
   settings: AppSettings & { id: string };
+  expenses: Expense;
 }
 
 export async function initDB(): Promise<IDBPDatabase<any>> {
@@ -29,6 +30,9 @@ export async function initDB(): Promise<IDBPDatabase<any>> {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('expenses')) {
+        db.createObjectStore('expenses', { keyPath: 'id' });
       }
     },
   });
