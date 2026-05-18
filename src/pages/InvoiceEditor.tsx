@@ -18,7 +18,8 @@ import {
   Type,
   Palette,
   Copy,
-  BookOpen
+  BookOpen,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
@@ -430,66 +431,81 @@ export const InvoiceEditor: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col gap-8 h-full">
-      {/* Editor Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2.5 glass rounded-xl hover:text-primary transition-all">
-            <ArrowLeft size={20} />
+    <div className="flex flex-col gap-10 h-full relative">
+      {/* Editor Header - Desktop Refinement */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:bg-white/[0.02] lg:p-6 lg:rounded-[32px] lg:border lg:border-white/5 lg:shadow-2xl">
+        <div className="flex items-center gap-5">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-3.5 glass rounded-2xl hover:text-primary transition-all hover:scale-110 active:scale-95 group"
+          >
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{id ? 'Edit Invoice' : 'Create New Invoice'}</h1>
-            <p className="text-xs text-muted flex items-center gap-1">
-              Draft <ChevronRight size={12} /> {watchedNumber}
-            </p>
+          <div className="space-y-1">
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight tracking-tight uppercase tracking-[0.1em]">{id ? 'Edit Document' : 'Generate Invoice'}</h1>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-black uppercase tracking-widest">{id ? 'Revision' : 'Original'}</span>
+              <p className="text-[10px] text-muted font-bold uppercase tracking-[0.2em] flex items-center gap-2 translate-y-px">
+                Ref No: <span className="text-white opacity-80 font-mono tracking-tight">{watchedNumber}</span>
+              </p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
           <button 
             type="button"
             onClick={() => setIsPreview(!isPreview)}
-            className="btn-secondary py-2.5 px-4 flex items-center gap-2 text-xs shrink-0"
+            className={cn(
+              "btn-secondary py-3.5 px-6 flex items-center gap-3 text-[11px] font-black uppercase tracking-widest transition-all",
+              isPreview ? "bg-primary text-white border-primary" : "hover:bg-white/10"
+            )}
           >
-            {isPreview ? <ArrowLeft size={16} /> : <Eye size={16} />}
-            <span className="hidden sm:inline">{isPreview ? 'Back to Edit' : 'Live Preview'}</span>
-            <span className="sm:hidden">{isPreview ? 'Edit' : 'Preview'}</span>
+            <Eye size={18} />
+            <span className="hidden sm:inline">{isPreview ? 'Edit Mode' : 'Live Preview'}</span>
+            <span className="sm:hidden">{isPreview ? 'Edit' : 'View'}</span>
           </button>
+          
+          <div className="lg:h-10 lg:w-[1px] lg:bg-white/10 lg:mx-2 hidden lg:block" />
+
           <button 
-            type="button"
+            type="button" 
             onClick={handleDownload}
-            className="btn-secondary py-2.5 px-4 flex items-center gap-2 text-xs shrink-0"
+            className="btn-secondary py-3.5 px-6 flex items-center gap-3 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
           >
-            <Download size={16} />
-            <span className="hidden sm:inline">Export PDF</span>
+            <Download size={18} />
+            <span className="hidden sm:inline">Export Assets</span>
             <span className="sm:hidden">PDF</span>
           </button>
+          
           <button 
             type="submit" 
             form="invoice-form"
             disabled={isFormSaving}
-            className="btn-primary py-2.5 px-6 flex items-center gap-2 text-xs shadow-lg shadow-primary/20 shrink-0 disabled:opacity-50"
+            className="btn-primary py-3.5 px-10 flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/40 active:scale-95 transition-all lg:min-w-[200px] justify-center"
           >
-            {isFormSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
-            {isFormSaving ? 'Saving...' : 'Save Invoice'}
+            {isFormSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+            {isFormSaving ? 'Processing...' : id ? 'Finalize Changes' : 'Issue Invoice'}
           </button>
+          
           {!id && (
             <button 
-              type="submit" 
-              form="invoice-form"
+              type="button" 
               disabled={isFormSaving}
               onClick={() => {
-                // We'll handle this in the submit handler by checking a flag
                 (window as any)._saveAndNew = true;
+                const form = document.querySelector('#invoice-form') as HTMLFormElement;
+                if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
               }}
-              className="btn-secondary py-2.5 px-6 flex items-center gap-2 text-xs shrink-0 disabled:opacity-50"
+              className="btn-secondary py-3.5 px-6 flex items-center gap-3 text-[11px] font-black uppercase tracking-widest border-primary/20 hover:border-primary/50 transition-all"
             >
-              Save & New
+              <Plus size={18} />
+              Save & Duplicate
             </button>
           )}
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start relative pb-20">
         {/* Stock Warning Dialog */}
         <AnimatePresence>
           {stockWarning && (
@@ -498,23 +514,25 @@ export const InvoiceEditor: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="glass-card max-w-md w-full border-red-500/30 p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.2)]"
+                className="glass-card max-w-md w-full border-red-500/30 p-10 text-center shadow-[0_0_80px_rgba(239,68,68,0.3)] rounded-[40px] bg-surface relative overflow-hidden"
               >
-                <div className="w-16 h-16 bg-red-400/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 border border-red-500/20">
-                  <Info size={32} />
+                <div className="absolute top-0 left-0 w-full h-1 bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)]" />
+                <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 text-red-500 border border-red-500/20 rotate-12 transition-transform">
+                  <Info size={40} />
                 </div>
-                <h3 className="text-xl font-black mb-2 italic uppercase">Inventory Shortage</h3>
-                <p className="text-muted text-sm mb-6 leading-relaxed">
-                  You are attempting to add more <span className="text-white font-bold">{stockWarning.name}</span> than what is available.
-                  <br />
-                  <span className="text-red-500 font-bold block mt-2">Shortage: {stockWarning.needed} units needed</span>
-                  <span className="text-green-500 text-[10px] uppercase font-bold tracking-widest">Current Available: {stockWarning.available}</span>
+                <h3 className="text-2xl font-black mb-3 italic uppercase tracking-tighter">Inventory Block</h3>
+                <p className="text-muted text-[13px] mb-8 leading-relaxed px-4">
+                  Request exceeds vault capacity for <span className="text-white font-black">{stockWarning.name}</span>.
+                  <br /><br />
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 text-red-500 font-black text-[10px] uppercase tracking-widest border border-red-500/20">
+                    Deficit: {stockWarning.needed} units
+                  </span>
                 </p>
                 <button 
                   onClick={() => setStockWarning(null)}
-                  className="w-full py-4 btn-primary bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-red-500/20"
+                  className="w-full py-5 btn-primary bg-red-500 hover:bg-red-600 text-white rounded-[20px] font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-red-500/20 active:scale-95 transition-all"
                 >
-                  Understood
+                  Adjust Request
                 </button>
               </motion.div>
             </div>
@@ -523,118 +541,154 @@ export const InvoiceEditor: React.FC = () => {
 
         {/* Main Editor Area */}
         <div className={cn(
-          "lg:col-span-8 space-y-8 transition-all duration-500",
-          isPreview && "opacity-0 invisible absolute"
+          "lg:col-span-7 space-y-10 transition-all duration-500",
+          isPreview && "hidden lg:block lg:opacity-30 lg:pointer-events-none lg:blur-sm"
         )}>
           <form id="invoice-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8 pb-24">
             {/* Basic Info */}
-            <div className="glass-card grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted">Invoice Number</label>
-                <input {...register('number')} className="input-field w-full font-mono text-sm" placeholder="INV-001" />
-                {errors.number && <p className="text-red-500 text-[10px] uppercase font-bold">{errors.number.message}</p>}
+            <div className="glass-card grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-10 !p-10 rounded-[48px]">
+              <div className="space-y-3 lg:col-span-1">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Reference ID</label>
+                <input {...register('number')} className="input-field w-full font-mono text-base tracking-tighter h-14 bg-white/[0.01]" placeholder="INV-001" />
+                {errors.number && <p className="text-red-500 text-[9px] uppercase font-black mt-2 ml-2">{errors.number.message}</p>}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted">Category</label>
-                <select {...register('category')} className="input-field w-full text-sm appearance-none bg-background">
-                  <option value="">No Category</option>
-                  <option value="Business">Business</option>
-                  <option value="Personal">Personal</option>
-                  <option value="Freelance">Freelance</option>
-                  <option value="Subscription">Subscription</option>
-                  <option value="Other">Other</option>
-                </select>
+              <div className="space-y-3 lg:col-span-1">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Classification</label>
+                <div className="relative group">
+                  <select {...register('category')} className="input-field w-full text-xs font-black uppercase tracking-widest bg-white/[0.01] h-14 px-5 appearance-none cursor-pointer">
+                    <option value="">UNCATEGORIZED</option>
+                    <option value="Business">BUSINESS</option>
+                    <option value="Personal">PERSONAL</option>
+                    <option value="Freelance">FREELANCE</option>
+                    <option value="Subscription">SUBSRIPTION</option>
+                    <option value="Other">OTHER</option>
+                  </select>
+                  <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-muted rotate-90" size={16} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted">Invoice Date</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Issue Date</label>
                 <input 
                   type="date" 
                   value={format(watch('date'), 'yyyy-MM-dd')}
                   onChange={(e) => setValue('date', new Date(e.target.value).getTime())}
-                  className="input-field w-full text-sm" 
+                  className="input-field w-full h-14 bg-white/[0.01] font-bold text-sm" 
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted">Due Date</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Final Deadline</label>
                 <input 
                   type="date" 
                   value={format(watch('dueDate'), 'yyyy-MM-dd')}
                   onChange={(e) => setValue('dueDate', new Date(e.target.value).getTime())}
-                  className="input-field w-full text-sm" 
+                  className="input-field w-full h-14 bg-white/[0.01] font-bold text-sm border-primary/20 text-primary" 
                 />
               </div>
             </div>
 
             {/* Customer Selection */}
-            <div className="glass-card">
-              <div className="flex justify-between items-center mb-6">
-                <label className="text-xs font-bold uppercase tracking-widest text-muted">Bill To / Customer</label>
-                <button 
+            <div className="glass-card !p-10 rounded-[48px] relative group/client overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] pointer-events-none group-hover/client:bg-primary/10 transition-all duration-700" />
+               <div className="flex justify-between items-center mb-8 relative">
+                 <div className="flex items-center gap-4">
+                    <div className="w-1.5 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-muted/60">Recipient Identity</label>
+                 </div>
+                 <button 
                   type="button" 
                   onClick={() => setShowQuickCustomer(!showQuickCustomer)}
-                  className="text-primary text-[10px] font-bold uppercase hover:underline"
+                  className="text-primary text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all bg-primary/5 px-5 py-2 rounded-2xl border border-primary/10"
                 >
-                  {showQuickCustomer ? 'Cancel' : 'Quick Add Customer'}
+                  {showQuickCustomer ? 'Cancel Operation' : '+ Quick Register'}
                 </button>
               </div>
 
               {showQuickCustomer ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-6 rounded-2xl bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-4">
-                   <input 
-                    placeholder="Full Name*" 
-                    className="input-field py-2 text-xs" 
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
-                   />
-                   <input 
-                    placeholder="Email Address*" 
-                    className="input-field py-2 text-xs" 
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
-                   />
-                   <input 
-                    placeholder="Company Name" 
-                    className="input-field py-2 text-xs" 
-                    value={newCustomer.companyName}
-                    onChange={(e) => setNewCustomer({...newCustomer, companyName: e.target.value})}
-                   />
-                   <div className="flex gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 rounded-[40px] bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-4 shadow-inner relative">
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-primary tracking-widest ml-1 opacity-60">Legal Alias</label>
                       <input 
-                        placeholder="Address" 
-                        className="input-field py-2 text-xs flex-1" 
-                        value={newCustomer.address}
-                        onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                        placeholder="Full Name*" 
+                        className="input-field py-4 h-14 text-sm font-bold bg-background/50" 
+                        value={newCustomer.name}
+                        onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
                       />
-                      <button 
-                        type="button" 
-                        onClick={handleQuickCustomer}
-                        className="btn-primary py-2 px-6 text-[10px] font-bold uppercase shadow-xl"
-                      >
-                        Add
-                      </button>
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-primary tracking-widest ml-1 opacity-60">Official Email</label>
+                      <input 
+                        placeholder="Email Address*" 
+                        className="input-field py-4 h-14 text-sm font-bold bg-background/50" 
+                        value={newCustomer.email}
+                        onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-primary tracking-widest ml-1 opacity-60">Associated Entity</label>
+                      <input 
+                        placeholder="Company Name" 
+                        className="input-field py-4 h-14 text-sm font-bold bg-background/50" 
+                        value={newCustomer.companyName}
+                        onChange={(e) => setNewCustomer({...newCustomer, companyName: e.target.value})}
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-primary tracking-widest ml-1 opacity-60">Physical Coordinates</label>
+                      <div className="flex gap-3">
+                        <input 
+                          placeholder="Postal Address" 
+                          className="input-field py-4 h-14 text-sm font-bold flex-1 bg-background/50" 
+                          value={newCustomer.address}
+                          onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                        />
+                        <button 
+                          type="button" 
+                          onClick={handleQuickCustomer}
+                          className="btn-primary px-8 text-[11px] font-black uppercase tracking-widest shadow-xl"
+                        >
+                          Verify
+                        </button>
+                      </div>
                    </div>
                 </div>
               ) : (
-                <>
-                  <select {...register('customerId')} className="input-field w-full text-sm mb-4 bg-background px-10 appearance-none">
-                    <option value="">Select a customer...</option>
+                <div className="relative group/sel">
+                  <select {...register('customerId')} className="input-field w-full h-16 px-14 font-black uppercase text-xs tracking-widest appearance-none bg-white/[0.01] hover:bg-white/[0.03] transition-all border-white/5 hover:border-primary/30 rounded-[28px]">
+                    <option value="">PROCEED TO IDENTIFY DESTINATION...</option>
                     {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.email || c.companyName})</option>
+                      <option key={c.id} value={c.id}>{c.name} — {c.companyName || 'INDEPENDENT'}</option>
                     ))}
                   </select>
-                  {errors.customerId && <p className="text-red-500 text-[10px] uppercase font-bold">{errors.customerId.message}</p>}
-                </>
+                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-muted/30 group-focus-within/sel:text-primary transition-colors" size={20} />
+                  <ChevronRight className="absolute right-6 top-1/2 -translate-y-1/2 text-muted/30 rotate-90" size={20} />
+                  {errors.customerId && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mt-3 ml-2">{errors.customerId.message}</p>}
+                </div>
               )}
               
               {selectedCustomer && !showQuickCustomer && (
-                <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-xs text-muted leading-relaxed flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-bold mb-1">{selectedCustomer.name}</p>
-                    <p>{selectedCustomer.email} • {selectedCustomer.companyName}</p>
-                    <p>{selectedCustomer.address}</p>
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 p-8 rounded-[40px] bg-white/[0.03] border border-white/5 flex items-start justify-between group/info hover:bg-white/[0.05] transition-all hover:border-white/10 shadow-inner"
+                >
+                  <div className="flex gap-6">
+                    <div className="w-20 h-20 rounded-[32px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover/info:rotate-6 transition-transform shadow-inner">
+                      <Search size={32} />
+                    </div>
+                    <div className="space-y-1 pt-1">
+                      <p className="text-xl font-black text-white/90 tracking-tight">{selectedCustomer.name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/80">{selectedCustomer.email} • {selectedCustomer.companyName || 'RESERVED'}</p>
+                      <p className="text-sm text-muted/60 mt-3 font-medium italic opacity-60 leading-relaxed max-w-sm">{selectedCustomer.address}</p>
+                    </div>
                   </div>
-                  <button type="button" onClick={() => setValue('customerId', '')} className="text-[10px] font-bold uppercase text-red-500 hover:underline">Change</button>
-                </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setValue('customerId', '')} 
+                    className="p-4 rounded-full bg-red-500/5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 transition-all border border-transparent hover:border-red-500/20"
+                  >
+                    <Trash2 size={24} />
+                  </button>
+                </motion.div>
               )}
             </div>
 
@@ -663,167 +717,182 @@ export const InvoiceEditor: React.FC = () => {
  
               <div className="space-y-4 p-6 md:p-0">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
-                    <div className="w-full md:col-span-5 space-y-2 relative">
-                      <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
-                      <div className="relative group/search">
-                         <input 
-                           {...register(`items.${index}.description` as const)} 
-                           placeholder="Enter service or product..."
-                           className="input-field w-full text-sm pl-10 h-11"
-                         />
-                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={14} />
-                         
-                         {/* Quick Product Results Dropdown */}
-                         <div className="absolute top-[calc(100%+8px)] left-0 w-full glass-card !p-2 z-[110] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-72 overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-primary/30 scale-95 group-focus-within/search:scale-100 origin-top backdrop-blur-3xl bg-surface/95">
-                            <div className="flex justify-between items-center px-3 py-1 border-b border-white/5 mb-1">
-                               <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Select or Add Product</p>
-                               <button 
-                                 type="button"
-                                 onMouseDown={() => {
-                                   setNewProduct({ name: watchedItems[index]?.description || '', price: 0, taxRate: 0 });
-                                   setShowQuickProduct({ index });
-                                 }}
-                                 className="text-[10px] font-black uppercase text-primary hover:underline"
-                               >
-                                  + Create New
-                               </button>
-                            </div>
-
-                            {showQuickProduct?.index === index ? (
-                               <div className="p-3 space-y-3 bg-primary/5 rounded-xl border border-primary/20 m-1">
-                                  <input 
-                                    className="input-field w-full py-1.5 text-xs" 
-                                    placeholder="Product Name" 
-                                    value={newProduct.name}
-                                    onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                                  />
-                                  <div className="flex gap-2">
-                                     <input 
-                                      type="number"
-                                      className="input-field w-full py-1.5 text-xs" 
-                                      placeholder="Price" 
-                                      value={newProduct.price || ''}
-                                      onChange={e => setNewProduct({...newProduct, price: +e.target.value})}
-                                     />
-                                     <button 
-                                      type="button"
-                                      onMouseDown={() => handleQuickProduct(index)}
-                                      className="btn-primary px-4 py-1.5 text-[10px] font-bold uppercase"
-                                     >
-                                        Save
-                                     </button>
-                                  </div>
-                               </div>
-                            ) : products.length > 0 ? (
-                               products.filter(p => {
-                                 const search = watchedItems[index]?.description?.toLowerCase() || '';
-                                 return p.name.toLowerCase().includes(search);
-                               }).map(p => (
-                                <button 
-                                  key={p.id}
-                                  type="button"
-                                  onMouseDown={() => {
-                                    setValue(`items.${index}.description`, p.name);
-                                    setValue(`items.${index}.productId`, p.id);
-                                    setValue(`items.${index}.price`, p.price);
-                                    setValue(`items.${index}.taxRate`, p.taxRate || 0);
-                                    
-                                    const avail = getProductAvailability(p.id);
-                                    if (avail < 1) {
-                                      setStockWarning({ name: p.name, needed: 1, available: avail });
-                                    }
-                                  }}
-                                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 text-sm flex justify-between items-center group/item"
-                                >
-                                  <div className="flex flex-col">
-                                     <span>{p.name}</span>
-                                     <span className="text-[8px] text-muted uppercase font-bold tracking-widest">
-                                       Avail: {getProductAvailability(p.id)} {p.unit}
-                                     </span>
-                                  </div>
-                                  <span className="text-[10px] font-black font-mono text-muted group-hover/item:text-primary">${p.price}</span>
-                                </button>
-                              ))
-                            ) : (
-                              <p className="px-3 py-2 text-xs text-muted italic">No products found.</p>
-                            )}
-                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="w-full flex flex-col md:contents gap-6 md:gap-4 mt-2 md:mt-0">
-                      <div className="grid grid-cols-2 md:contents gap-4 w-full">
-                        <div className="space-y-2 md:col-span-2">
-                           <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
+                  <React.Fragment key={field.id}>
+                    <div className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
+                      <div className="w-full md:col-span-5 space-y-2 relative">
+                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
+                        <div className="relative group/search">
                            <input 
-                             type="number"
-                             {...register(`items.${index}.quantity` as const, { 
-                               valueAsNumber: true,
-                               onChange: (e) => {
-                                 const qty = parseInt(e.target.value);
-                                 const prodId = watchedItems[index]?.productId;
-                                 if (prodId) {
-                                   const avail = getProductAvailability(prodId);
-                                   if (qty > avail) {
-                                     setStockWarning({ 
-                                       name: watchedItems[index]?.description || 'Item', 
-                                       needed: qty - avail, 
-                                       available: avail 
-                                     });
-                                   }
-                                 }
-                               }
-                             })} 
-                             className="input-field w-full text-sm text-center font-bold h-11"
+                             {...register(`items.${index}.description` as const)} 
+                             placeholder="Enter service or product..."
+                             className="input-field w-full text-sm pl-10 h-11"
                            />
-                        </div>
-                        
-                        <div className="space-y-2 md:col-span-3">
-                           <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Unit Price</label>
-                           <div className="relative">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">$</span>
-                              <input 
-                                type="number"
-                                step="0.01"
-                                {...register(`items.${index}.price` as const, { valueAsNumber: true })} 
-                                className="input-field w-full text-sm pl-8 font-mono font-bold h-11"
-                              />
+                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={14} />
+                           
+                           {/* Quick Product Results Dropdown */}
+                           <div className="absolute top-[calc(100%+8px)] left-0 w-full glass-card !p-2 z-[110] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-72 overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-primary/30 scale-95 group-focus-within/search:scale-100 origin-top backdrop-blur-3xl bg-surface/95">
+                              <div className="flex justify-between items-center px-3 py-1 border-b border-white/5 mb-1">
+                                 <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Select or Add Product</p>
+                                 <button 
+                                   type="button"
+                                   onMouseDown={() => {
+                                     setNewProduct({ name: watchedItems[index]?.description || '', price: 0, taxRate: 0 });
+                                     setShowQuickProduct({ index });
+                                   }}
+                                   className="text-[10px] font-black uppercase text-primary hover:underline"
+                                 >
+                                    + Create New
+                                  </button>
+                              </div>
+
+                              {showQuickProduct?.index === index ? (
+                                 <div className="p-3 space-y-3 bg-primary/5 rounded-xl border border-primary/20 m-1">
+                                    <input 
+                                      className="input-field w-full py-1.5 text-xs bg-surface/50" 
+                                      placeholder="Product Name" 
+                                      value={newProduct.name}
+                                      onChange={e => setNewProduct({...newProduct, name: e.target.value})}
+                                    />
+                                    <div className="flex gap-2">
+                                       <input 
+                                        type="number"
+                                        className="input-field w-full py-1.5 text-xs bg-surface/50" 
+                                        placeholder="Price" 
+                                        value={newProduct.price || ''}
+                                        onChange={e => setNewProduct({...newProduct, price: +e.target.value})}
+                                       />
+                                       <button 
+                                        type="button"
+                                        onMouseDown={() => handleQuickProduct(index)}
+                                        className="btn-primary px-4 py-1.5 text-[10px] font-bold uppercase transition-transform active:scale-95"
+                                       >
+                                          Save
+                                       </button>
+                                    </div>
+                                 </div>
+                              ) : products.length > 0 ? (
+                                 products.filter(p => {
+                                   const search = watchedItems[index]?.description?.toLowerCase() || '';
+                                   return p.name.toLowerCase().includes(search);
+                                 }).map(p => {
+                                   const availability = getProductAvailability(p.id);
+                                   return (
+                                    <button 
+                                      key={p.id}
+                                      type="button"
+                                      onMouseDown={() => {
+                                        setValue(`items.${index}.description`, p.name);
+                                        setValue(`items.${index}.productId`, p.id);
+                                        setValue(`items.${index}.price`, p.price);
+                                        setValue(`items.${index}.taxRate`, p.taxRate || 0);
+                                        
+                                        const avail = getProductAvailability(p.id);
+                                        if (avail < 1) {
+                                          setStockWarning({ name: p.name, needed: 1, available: avail });
+                                        }
+                                      }}
+                                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-primary/10 text-sm flex justify-between items-center group/item transition-colors border border-transparent hover:border-primary/20 mb-1"
+                                    >
+                                      <div className="flex flex-col gap-0.5">
+                                         <span className="font-bold">{p.name}</span>
+                                         <div className="flex items-center gap-2">
+                                            <div className={cn(
+                                              "w-1.5 h-1.5 rounded-full",
+                                              availability > 10 ? "bg-green-500" : availability > 0 ? "bg-orange-500" : "bg-red-500"
+                                            )} />
+                                            <span className="text-[9px] text-muted uppercase font-black tracking-widest opacity-60">
+                                              Stock: {availability} {p.unit}
+                                            </span>
+                                         </div>
+                                      </div>
+                                      <div className="flex flex-col items-end">
+                                        <span className="text-[10px] font-black font-mono text-muted group-hover/item:text-primary transition-colors">${p.price}</span>
+                                        {p.sku && <span className="text-[8px] text-muted/40 font-mono">{p.sku}</span>}
+                                      </div>
+                                    </button>
+                                   );
+                                 })
+                              ) : (
+                                <p className="px-3 py-4 text-center text-[10px] font-black uppercase text-muted tracking-widest leading-relaxed">No products found in matrix.<br/>Start typing or use Quick Register.</p>
+                              )}
                            </div>
                         </div>
                       </div>
-
-                      <div className="flex flex-wrap md:col-span-2 gap-4 items-end w-full">
-                         <div className="flex-1 space-y-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest block text-center md:text-left">Tax & Disc</label>
-                            <div className="flex gap-2">
-                               <div className="flex-1 relative">
-                                  <input 
-                                    type="number"
-                                    placeholder="Tax (%)"
-                                    {...register(`items.${index}.taxRate` as const, { valueAsNumber: true })} 
-                                    className="input-field w-full text-[10px] px-2 text-center h-11"
-                                  />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-muted">%</span>
-                               </div>
-                               <div className="flex-1 relative">
-                                  <input 
-                                    type="number"
-                                    placeholder="Disc (%)"
-                                    {...register(`items.${index}.discount` as const, { valueAsNumber: true })} 
-                                    className="input-field w-full text-[10px] px-2 text-center text-green-500 border-green-500/20 h-11"
-                                  />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-green-500/50">%</span>
-                               </div>
+                      
+                      <div className="w-full flex-1 flex flex-col md:grid md:grid-cols-7 gap-4">
+                         <div className="md:col-span-1 space-y-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
+                            <div className="relative group/qty">
+                              <input 
+                                type="number"
+                                {...register(`items.${index}.quantity` as const, { 
+                                  valueAsNumber: true,
+                                  onChange: (e) => {
+                                    const qty = parseInt(e.target.value);
+                                    const prodId = watchedItems[index]?.productId;
+                                    if (prodId) {
+                                      const avail = getProductAvailability(prodId);
+                                      if (qty > avail) {
+                                        setStockWarning({ 
+                                          name: watchedItems[index]?.description || 'Item', 
+                                          needed: qty - avail, 
+                                          available: avail 
+                                        });
+                                      }
+                                    }
+                                  }
+                                })} 
+                                className="input-field w-full text-sm text-center font-bold h-11"
+                              />
+                              {watchedItems[index]?.productId && (
+                                <div className="absolute -bottom-5 left-1 flex items-center gap-1.5 opacity-60 group-focus-within/qty:opacity-100 transition-opacity">
+                                   <div className={cn(
+                                     "w-1 h-1 rounded-full",
+                                     getProductAvailability(watchedItems[index].productId!) > 0 ? "bg-green-500 animate-pulse" : "bg-red-500"
+                                   )} />
+                                   <span className="text-[8px] font-black uppercase tracking-[0.1em] text-muted">
+                                     Stock: {getProductAvailability(watchedItems[index].productId!)}
+                                   </span>
+                                </div>
+                              )}
                             </div>
                          </div>
-                      </div>
+                         
+                         <div className="md:col-span-2 space-y-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Unit Price</label>
+                            <div className="relative">
+                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">$</span>
+                               <input 
+                                 type="number"
+                                 step="0.01"
+                                 {...register(`items.${index}.price` as const, { valueAsNumber: true })} 
+                                 className="input-field w-full text-sm pl-8 font-mono font-bold h-11"
+                               />
+                            </div>
+                         </div>
 
-                      <div className="md:col-span-2 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center w-full pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
-                         <label className="text-[10px] font-bold text-muted uppercase tracking-widest md:mb-2 text-primary" style={{ color: watch('accentColor') }}>Line Total</label>
-                         <div className="flex items-center gap-3">
-                            <div className="text-right">
-                               <p className="text-base md:text-sm font-black font-mono text-primary" style={{ color: watch('accentColor') }}>
+                         <div className="md:col-span-1 space-y-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Tax (%)</label>
+                            <input 
+                              type="number"
+                              {...register(`items.${index}.taxRate` as const, { valueAsNumber: true })} 
+                              className="input-field w-full text-xs text-center h-11"
+                            />
+                         </div>
+
+                         <div className="md:col-span-1 space-y-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1 text-green-500">Disc (%)</label>
+                            <input 
+                              type="number"
+                              {...register(`items.${index}.discount` as const, { valueAsNumber: true })} 
+                              className="input-field w-full text-xs text-center text-green-500 border-green-500/20 h-11 font-bold"
+                            />
+                         </div>
+
+                         <div className="md:col-span-2 flex flex-col items-end justify-center pt-2">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1" style={{ color: watch('accentColor') }}>Line Total</label>
+                            <div className="flex items-center gap-3">
+                               <p className="text-sm font-black font-mono text-primary" style={{ color: watch('accentColor') }}>
                                  ${(() => {
                                    const qty = Number(watchedItems[index]?.quantity) || 0;
                                    const prc = Number(watchedItems[index]?.price) || 0;
@@ -834,30 +903,30 @@ export const InvoiceEditor: React.FC = () => {
                                    return (afterDisc + (afterDisc * (tax / 100))).toFixed(2);
                                  })()}
                                </p>
-                            </div>
-                            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                              <button 
-                                type="button" 
-                                onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
-                                className="p-2.5 rounded-lg bg-white/5 text-muted hover:text-primary transition-all md:bg-transparent"
-                                title="Duplicate"
-                              >
-                                <Copy size={16} />
-                              </button>
-                              <button 
-                                type="button" 
-                                onClick={() => remove(index)}
-                                className="p-2.5 rounded-lg bg-white/5 text-muted hover:text-red-500 transition-all md:bg-transparent"
-                                title="Delete"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <button 
+                                   type="button" 
+                                   onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
+                                   className="p-1.5 rounded-lg hover:bg-primary/10 text-muted hover:text-primary transition-all"
+                                   title="Duplicate"
+                                 >
+                                   <Copy size={14} />
+                                 </button>
+                                 <button 
+                                   type="button" 
+                                   onClick={() => remove(index)}
+                                   className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all"
+                                   title="Delete"
+                                 >
+                                   <Trash2 size={14} />
+                                 </button>
+                               </div>
                             </div>
                          </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  </React.Fragment>
+))}
               </div>
 
               <button 
@@ -984,101 +1053,84 @@ export const InvoiceEditor: React.FC = () => {
           </form>
         </div>
 
-        {/* Sidebar Panel (Tools or Preview) */}
+        {/* Sidebar / Permanent Preview (Desktop) */}
         <div className={cn(
-          "lg:col-span-4 sticky top-8 transition-all duration-500",
-          isPreview ? "lg:col-span-12 w-full" : "lg:col-span-4"
+          "lg:col-span-5 lg:sticky lg:top-8 transition-all duration-700",
+          !isPreview && "hidden lg:block lg:opacity-95 lg:scale-[0.98] lg:hover:opacity-100 lg:hover:scale-100"
         )}>
-           {isPreview ? (
-             <div className="py-4">
-                {renderPreviewContent()}
-             </div>
-           ) : (
-             <div className="space-y-6">
-                <div className="glass-card animate-in fade-in slide-in-from-right-4">
-                  <h3 className="font-bold text-lg mb-6">Summary</h3>
-                  <div className="space-y-4 mb-8">
-                     <div className="flex justify-between text-sm">
-                        <span className="text-muted">Subtotal</span>
-                        <span className="font-mono font-bold">${totals.subtotal.toFixed(2)}</span>
+          {/* Mobile Preview Overlay Header */}
+          <div className="flex items-center justify-between mb-8 lg:hidden bg-surface p-6 rounded-[32px] border border-white/10 shadow-2xl">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"><Eye size={20} /></div>
+              <h3 className="text-xl font-black uppercase tracking-tight">Full-Screen Vision</h3>
+            </div>
+            <button onClick={() => setIsPreview(false)} className="p-4 bg-white/5 rounded-2xl text-muted/60 hover:text-white transition-all"><X size={24} /></button>
+          </div>
+          
+          <div className="space-y-8 lg:space-y-10">
+             {/* Visual Strategy Panel */}
+             <div className="glass-card !p-6 lg:!p-8 rounded-[40px] border-white/10 shadow-2xl relative overflow-hidden group/visual">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover/visual:opacity-100 transition-opacity duration-700" />
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
+                   <div className="flex flex-col gap-2">
+                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-muted/60 mb-2">Design Infrastructure</span>
+                     <div className="flex gap-3">
+                       {['modern', 'bold', 'minimal', 'classic'].map(tid => (
+                         <button 
+                           key={tid} 
+                           type="button" 
+                           onClick={() => setValue('templateId', tid)}
+                           className={cn(
+                             "px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all hover:scale-105 active:scale-95",
+                             watch('templateId') === tid ? "bg-primary border-primary text-white shadow-xl shadow-primary/30" : "bg-white/5 border-white/5 text-muted/40 hover:text-white"
+                           )}
+                         >
+                           {tid.slice(0,3)}
+                         </button>
+                       ))}
                      </div>
-                     <div className="flex justify-between text-sm">
-                        <span className="text-muted">Discounts</span>
-                        <span className="font-mono font-bold text-green-500">-${totals.discountTotal.toFixed(2)}</span>
-                     </div>
-                     <div className="flex justify-between text-sm">
-                        <span className="text-muted">Taxes</span>
-                        <span className="font-mono font-bold">${totals.taxTotal.toFixed(2)}</span>
-                     </div>
-                  </div>
-                  <div className="pt-6 border-t border-white/5 flex justify-between items-end">
-                     <div className="text-xs text-muted uppercase font-bold tracking-widest">Total Amount</div>
-                     <div 
-                        className="text-3xl font-black font-mono tracking-tighter"
-                        style={{ color: watch('accentColor') }}
-                     >
-                       ${totals.total.toFixed(2)}
-                     </div>
-                  </div>
-                </div>
+                   </div>
+                   
+                   <div className="w-[1px] h-12 bg-white/10 hidden lg:block" />
 
-                <div className="glass-card animate-in fade-in slide-in-from-right-8">
-                  <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    <LayoutTemplate size={20} className="text-primary" />
-                    Customization
-                  </h3>
-                  <div className="space-y-6">
-                     <div>
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-3">Accent Color</label>
-                        <div className="flex flex-wrap gap-2">
-                           {['#FF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'].map(color => (
-                              <button 
-                                key={color}
-                                type="button"
-                                onClick={() => setValue('accentColor', color)}
-                                className={cn(
-                                  "w-8 h-8 rounded-full border-2 transition-all",
-                                  watch('accentColor') === color ? "border-white scale-110 shadow-lg" : "border-transparent"
-                                )}
-                                style={{ backgroundColor: color }}
-                              />
-                           ))}
-                        </div>
+                   <div className="flex flex-col gap-2">
+                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-muted/60 mb-2">Primary Pigment</span>
+                     <div className="flex gap-3 items-center">
+                        {['#FF4444', '#3B82F6', '#10B981', '#F59E0B'].map(c => (
+                          <button 
+                            key={c} 
+                            type="button" 
+                            onClick={() => setValue('accentColor', c)}
+                            className={cn(
+                              "w-8 h-8 rounded-full border-2 transition-all p-1 hover:scale-125",
+                              watch('accentColor') === c ? "border-white shadow-[0_0_20px_rgba(255,255,255,0.4)]" : "border-transparent opacity-40 hover:opacity-100"
+                            )}
+                          >
+                            <div className="w-full h-full rounded-full shadow-inner" style={{ backgroundColor: c }} />
+                          </button>
+                        ))}
                      </div>
-
-                     <div>
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-3">Template</label>
-                        <div className="grid grid-cols-2 gap-2">
-                           {['modern', 'minimal', 'classic', 'bold'].map(template => (
-                              <button 
-                                key={template}
-                                type="button"
-                                onClick={() => setValue('templateId', template)}
-                                className={cn(
-                                  "px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all",
-                                  watch('templateId') === template 
-                                    ? "bg-primary/10 border-primary text-primary" 
-                                    : "bg-white/5 border-white/10 text-muted hover:bg-white/10"
-                                )}
-                              >
-                                 {template}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
-                </div>
-
-                <div className="glass-card !bg-primary/5 border-primary/20">
-                   <div className="flex items-start gap-3">
-                      <Info size={18} className="text-primary shrink-0 mt-0.5" />
-                      <p className="text-xs text-muted leading-relaxed italic">
-                        All changes are auto-saved to your local machine. You can safely reload this page.
-                      </p>
                    </div>
                 </div>
              </div>
-           )}
+
+             <div className="lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:rounded-[64px] shadow-[0_60px_150px_rgba(0,0,0,0.9)] custom-scrollbar lg:border lg:border-white/5 bg-white scale-[1.001]">
+                {renderPreviewContent()}
+             </div>
+
+             <div className="glass-card !bg-primary/5 border-primary/20 !p-8 rounded-[40px] hidden lg:flex items-center gap-6 shadow-xl relative overflow-hidden group/save">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[60px] opacity-0 group-hover/save:opacity-100 transition-opacity" />
+                <div className="w-14 h-14 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover/save:scale-110 transition-transform">
+                   <Info size={28} />
+                </div>
+                <div className="flex-1 space-y-1">
+                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">Autonomous Redundancy</p>
+                   <p className="text-xs text-muted/60 leading-relaxed italic opacity-80">
+                      State integrity is maintained locally. You may exit the operation without data loss.
+                   </p>
+                </div>
+             </div>
+          </div>
         </div>
       </div>
     </div>

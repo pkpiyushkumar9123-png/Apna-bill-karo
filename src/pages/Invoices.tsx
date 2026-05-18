@@ -13,6 +13,8 @@ import {
   ChevronRight,
   TrendingUp,
   FileText,
+  Clock,
+  CheckCircle2,
   X,
   CreditCard,
   Calendar,
@@ -121,22 +123,23 @@ export const Invoices: React.FC = () => {
   const categories = Array.from(new Set(invoices.map(inv => inv.category).filter(Boolean)));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 lg:space-y-12 max-w-[1600px] mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Invoices</h1>
-          <p className="text-muted text-sm">Manage and track all your outgoing bills in one place.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 lg:gap-10">
+        <div className="lg:space-y-1">
+          <h1 className="text-3xl lg:text-4xl font-black tracking-tight mb-2 italic">Register</h1>
+          <p className="text-muted text-sm font-bold uppercase tracking-widest lg:tracking-[0.2em]">Manage and track all your outgoing bills</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button 
             onClick={exportToCSV}
-            className="btn-secondary flex items-center gap-2 py-2.5 text-sm"
+            className="btn-secondary flex items-center gap-2 py-3 lg:px-8 text-xs lg:text-sm group"
           >
-            <Download size={18} />
-            Export CSV
+            <Download size={18} className="group-hover:translate-y-0.5 transition-transform" />
+            <span className="hidden sm:inline">Export History</span>
+            <span className="sm:hidden">Export</span>
           </button>
-          <NavLink to="/invoices/new" className="btn-primary flex items-center gap-2 py-2.5 text-sm">
+          <NavLink to="/invoices/new" className="btn-primary flex items-center gap-2 py-3 lg:px-8 text-xs lg:text-sm shadow-xl shadow-primary/20 hover:scale-105 transition-transform">
             <Plus size={18} />
             New Invoice
           </NavLink>
@@ -144,92 +147,82 @@ export const Invoices: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SummaryCard label="Drafts" count={invoices.filter(i => i.status === 'draft').length} />
-        <SummaryCard label="Pending" count={invoices.filter(i => i.status === 'pending').length} highlight="text-yellow-500" />
-        <SummaryCard label="Paid" count={invoices.filter(i => i.status === 'paid').length} highlight="text-green-500" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <SummaryCard label="Drafts" count={invoices.filter(i => i.status === 'draft').length} icon={<FileText size={18} />} />
+        <SummaryCard label="Pending" count={invoices.filter(i => i.status === 'pending').length} highlight="text-yellow-500" icon={<Clock size={18} />} />
+        <SummaryCard label="Paid" count={invoices.filter(i => i.status === 'paid').length} highlight="text-green-500" icon={<CheckCircle2 size={18} />} />
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
+      <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-6">
+        <div className="relative flex-1 w-full lg:max-w-2xl">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted" size={18} />
           <input 
             type="text" 
             placeholder="Search by invoice number or client name..." 
-            className="w-full py-3 pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-primary/50"
+            className="w-full py-4 pl-14 pr-6 bg-white/[0.03] border border-white/5 rounded-2xl text-sm focus:outline-none focus:border-primary/50 lg:text-base transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-48 group">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={16} />
+            <select 
+              className="input-field py-4 pl-12 pr-4 text-xs font-bold uppercase tracking-widest w-full appearance-none bg-background cursor-pointer hover:bg-white/5"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Every Status</option>
+              <option value="draft">Draft Only</option>
+              <option value="pending">Due Now</option>
+              <option value="paid">Settled</option>
+              <option value="overdue">Lapsed</option>
+            </select>
+          </div>
           <select 
-            className="input-field py-3 text-sm flex-1 md:w-40 appearance-none bg-background"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
-          <select 
-            className="input-field py-3 text-sm flex-1 md:w-40 appearance-none bg-background"
+            className="input-field py-4 text-xs font-bold uppercase tracking-widest w-full lg:w-48 appearance-none bg-background cursor-pointer hover:bg-white/5"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="all">All Categories</option>
+            <option value="all">All Groups</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          <button className="p-3 glass rounded-xl text-muted hover:text-white transition-all">
-            <Filter size={18} />
-          </button>
         </div>
       </div>
 
       {/* Table / Mobile Cards */}
-      <div className="glass-card !p-0 overflow-hidden border-none bg-transparent lg:glass-card lg:!p-0 lg:overflow-hidden lg:border lg:bg-white/5">
+      <div className="glass-card !p-0 overflow-hidden border-none bg-transparent lg:glass-card lg:!p-0 lg:overflow-hidden lg:border-[0.5px] lg:border-white/10 lg:bg-white/[0.02] shadow-2xl">
         {filteredInvoices.length > 0 ? (
           <>
             {/* Desktop Table View */}
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left border-separate border-spacing-0">
                 <thead>
-                  <tr className="bg-white/5 text-xs font-bold uppercase tracking-widest text-muted border-b border-white/5">
-                    <th className="px-6 py-4">Invoice</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Due Date</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                  <tr className="bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-muted/60">
+                    <th className="px-8 py-5 border-b border-white/5">Ref / Identity</th>
+                    <th className="px-8 py-5 border-b border-white/5">Pipeline Status</th>
+                    <th className="px-8 py-5 border-b border-white/5">Schedule</th>
+                    <th className="px-8 py-5 border-b border-white/5">Valuation</th>
+                    <th className="px-8 py-5 border-b border-white/5 text-right">Operations</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors group relative">
-                      <td className="px-6 py-6 cursor-pointer" onClick={() => setSelectedInvoiceId(inv.id)}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-primary border border-white/5 shrink-0">
-                            <FileText size={24} />
+                    <tr key={inv.id} className="hover:bg-white/[0.04] transition-all group relative cursor-pointer" onClick={() => setSelectedInvoiceId(inv.id)}>
+                      <td className="px-8 py-8">
+                        <div className="flex items-center gap-5">
+                          <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center text-primary/50 border border-white/5 group-hover:border-primary/30 group-hover:text-primary transition-all shadow-inner">
+                            <FileText size={28} />
                           </div>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-bold tracking-tight">#{inv.number}</p>
-                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                inv.status === 'paid' ? 'bg-green-500/10 text-green-500' : 
-                                inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' : 
-                                inv.status === 'draft' ? 'bg-white/10 text-muted shadow-inner' :
-                                'bg-red-500/10 text-red-500'
-                              }`}>
-                                {inv.status}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-[10px] text-muted">{customers.find(c => c.id === inv.customerId)?.name || 'Unknown Client'}</p>
+                          <div>
+                            <p className="text-base font-black tracking-tighter group-hover:text-primary transition-colors">#{inv.number}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-[11px] font-bold text-muted truncate max-w-[150px]">{customers.find(c => c.id === inv.customerId)?.name || 'Direct Sale'}</p>
                               {inv.category && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded-md bg-primary/5 text-primary/70 border border-primary/10 uppercase font-black">
+                                <span className="text-[8px] px-2 py-0.5 rounded-full bg-primary/5 text-primary/60 border border-primary/10 uppercase font-black tracking-widest">
                                   {inv.category}
                                 </span>
                               )}
@@ -237,26 +230,57 @@ export const Invoices: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-6 border-l border-white/[0.02]">
-                        <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Update Status</p>
-                        <StatusSlider 
-                          currentStatus={inv.status} 
-                          onUpdate={(status) => updateInvoice({ ...inv, status })}
-                          compact
-                          className="w-44"
-                        />
-                      </td>
-                      <td className="px-6 py-5">
-                        <p className="text-sm text-muted">{format(inv.dueDate, 'MMM dd, yyyy')}</p>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-black font-mono tracking-tighter">${inv.total.toFixed(2)}</span>
-                          {inv.status === 'paid' && <TrendingUp size={14} className="text-green-500" />}
+                      <td className="px-8 py-8">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between max-w-[180px]">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                              inv.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
+                              inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 
+                              inv.status === 'draft' ? 'bg-white/5 text-muted border-white/10' :
+                              'bg-red-500/10 text-red-500 border-red-500/20'
+                            }`}>
+                              {inv.status}
+                            </span>
+                            <span className="text-[9px] font-bold text-muted/40 uppercase tracking-widest">Set</span>
+                          </div>
+                          <StatusSlider 
+                            currentStatus={inv.status} 
+                            onUpdate={(status) => updateInvoice({ ...inv, status })}
+                            compact
+                            className="w-48 shadow-lg shadow-black/20"
+                          />
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-8 py-8">
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold text-white/80">{format(inv.date, 'MMM dd')}</p>
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={10} className="text-muted" />
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Due {format(inv.dueDate, 'MMM dd')}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-8">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="text-lg font-black font-mono tracking-tighter text-white/90">
+                              {profile?.currency || 'INR'} {inv.total.toLocaleString()}
+                            </p>
+                            {inv.paidAmount && inv.paidAmount > 0 && inv.paidAmount < inv.total && (
+                              <p className="text-[10px] font-bold text-green-500/70 tracking-widest uppercase">
+                                Paid: {profile?.currency || 'INR'} {inv.paidAmount.toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                          {inv.status === 'paid' && (
+                            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+                              <TrendingUp size={16} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-8 py-8 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 transition-transform">
                           <button 
                             onClick={async () => {
                               const newNum = `INV-REF-${Date.now().toString().slice(-4)}`;
@@ -270,28 +294,32 @@ export const Invoices: React.FC = () => {
                               };
                               // @ts-ignore
                               await addInvoice(newInvoice);
-                              alert(`Invoice duplicated as ${newNum}`);
-                            }}
-                            className="p-2 rounded-lg hover:bg-white/10 text-muted hover:text-primary transition-all"
-                            title="Duplicate Invoice"
+                             }}
+                            className="p-3 rounded-xl bg-white/[0.03] hover:bg-primary/20 text-muted hover:text-white transition-all border border-white/5"
+                            title="Clone Entry"
                           >
                             <Copy size={18} />
                           </button>
                           <button 
                             onClick={() => handleDownload(inv)}
-                            className="p-2 rounded-lg hover:bg-white/10 text-muted hover:text-white transition-all"
+                            className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/10 text-muted hover:text-white transition-all border border-white/5"
+                            title="Obtain PDF"
                           >
                             <Download size={18} />
                           </button>
                           <NavLink 
                             to={`/invoices/${inv.id}`} 
-                            className="p-2 rounded-lg hover:bg-white/10 text-muted hover:text-white transition-all"
+                            className="p-3 rounded-xl bg-white/[0.03] hover:bg-primary text-white transition-all border border-white/5 shadow-lg shadow-primary/20"
+                            title="Edit Record"
                           >
                             <ExternalLink size={18} />
                           </NavLink>
                           <button 
-                            onClick={() => deleteInvoice(inv.id)}
-                            className="p-2 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all"
+                            onClick={() => {
+                              if(confirm('Erase this record from local storage?')) deleteInvoice(inv.id);
+                            }}
+                            className="p-3 rounded-xl bg-white/[0.03] hover:bg-red-500/20 text-muted hover:text-red-500 transition-all border border-white/5"
+                            title="Discard"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -586,9 +614,14 @@ export const Invoices: React.FC = () => {
   );
 };
 
-const SummaryCard = ({ label, count, highlight = 'text-white' }: any) => (
-  <div className="glass-card flex items-center justify-between !py-4">
-    <span className="text-xs font-bold uppercase tracking-widest text-muted">{label}</span>
-    <span className={`text-2xl font-black font-mono tracking-tighter ${highlight}`}>{count}</span>
+const SummaryCard = ({ label, count, highlight = 'text-white', icon }: any) => (
+  <div className="glass-card flex items-center justify-between !py-6 px-8 group hover:bg-white/[0.05] transition-all cursor-default">
+    <div className="flex items-center gap-4">
+      <div className={`p-3 rounded-2xl bg-white/[0.03] group-hover:bg-white/10 transition-all border border-white/5 ${highlight.replace('text-', 'text- opacity-80')}`}>
+        {icon}
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted group-hover:text-muted/80 transition-colors">{label}</span>
+    </div>
+    <span className={`text-4xl font-black font-mono tracking-tighter ${highlight} drop-shadow-sm`}>{count}</span>
   </div>
 );
