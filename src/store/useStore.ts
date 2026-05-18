@@ -117,8 +117,10 @@ export const useStore = create<AppState>((set, get) => ({
       // Handle Defaults if empty
       // ... (rest of defaults) ...
 
-      let profile = settings?.profile || (await dbService.getAll<BusinessProfile>('profiles'))[0] || null;
-      if (!profile && !get().workspaceConnected) {
+      let profileFromDb = (await dbService.getAll<BusinessProfile>('profiles'))[0];
+      let profile = settings?.profile || profileFromDb || null;
+
+      if (!profile) {
         profile = {
           id: 'default',
           name: 'NovaBill Business',
@@ -129,6 +131,8 @@ export const useStore = create<AppState>((set, get) => ({
           phone: '+91 00000 00000',
           logoUrl: ''
         };
+        // Persist default profile if it didn't exist
+        await dbService.put('profiles', profile);
       }
 
       set({

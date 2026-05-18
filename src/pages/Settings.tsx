@@ -30,28 +30,35 @@ import { BusinessProfile } from '../types.ts';
 import * as XLSX from 'xlsx';
 
 export const Settings: React.FC = () => {
-  const { profile, settings, updateProfile, updateSettings, isSaving } = useStore();
-  const [profileData, setProfileData] = useState<BusinessProfile | null>(profile);
+  const { profile, settings, updateProfile, updateSettings, isSaving, workspaceConnected, workspaceName, requestWorkspacePermission } = useStore();
+  const [profileData, setProfileData] = useState<BusinessProfile>(profile || {
+    id: 'default',
+    name: '',
+    email: '',
+    currency: 'INR',
+    address: '',
+    website: '',
+    phone: '',
+    logoUrl: ''
+  });
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    if (profile && !profileData) {
+    // Sync store profile to local state only once or when store profile clearly changes from what we have
+    if (profile && (!profileData.name && !profileData.email)) {
       setProfileData(profile);
     }
   }, [profile]);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    if (!profileData) return;
     const { name, value } = e.target;
-    setProfileData({ ...profileData, [name]: value });
+    setProfileData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveProfile = async () => {
-    if (profileData) {
-      await updateProfile(profileData);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    }
+    await updateProfile(profileData);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   const handleExportData = async () => {
@@ -110,14 +117,13 @@ export const Settings: React.FC = () => {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setProfileData({ ...profileData, logoUrl: reader.result as string });
+      setProfileData(prev => ({ ...prev, logoUrl: reader.result as string }));
     };
     reader.readAsDataURL(file);
   };
 
   const removeLogo = () => {
-    if (!profileData) return;
-    setProfileData({ ...profileData, logoUrl: '' });
+    setProfileData(prev => ({ ...prev, logoUrl: '' }));
   };
 
   const addPreset = async (type: 'note' | 'term', value: string) => {
@@ -220,7 +226,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Legal Business Name</label>
                  <input 
                    name="name"
-                   value={profileData?.name || ''}
+                   placeholder="Enter business name"
+                   value={profileData.name}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -229,7 +236,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Email</label>
                  <input 
                    name="email"
-                   value={profileData?.email || ''}
+                   placeholder="billing@company.com"
+                   value={profileData.email}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -238,7 +246,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Phone Number</label>
                  <input 
                    name="phone"
-                   value={profileData?.phone || ''}
+                   placeholder="+1 000 000 0000"
+                   value={profileData.phone || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -247,7 +256,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Website</label>
                  <input 
                    name="website"
-                   value={profileData?.website || ''}
+                   placeholder="www.business.com"
+                   value={profileData.website || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -256,7 +266,7 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Currency (e.g. USD, INR)</label>
                  <select
                    name="currency"
-                   value={profileData?.currency || 'USD'}
+                   value={profileData.currency || 'USD'}
                    onChange={handleProfileChange}
                    className="input-field w-full bg-transparent"
                  >
@@ -272,7 +282,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Tax ID / VAT Registration</label>
                  <input 
                    name="taxId"
-                   value={profileData?.taxId || ''}
+                   placeholder="GSTIN / VAT / TAX Number"
+                   value={profileData.taxId || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -281,7 +292,8 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Address</label>
                  <textarea 
                    name="address"
-                   value={profileData?.address || ''}
+                   placeholder="Street, City, State, Country, Zip"
+                   value={profileData.address || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full h-24 resize-none" 
                  />
@@ -294,7 +306,8 @@ export const Settings: React.FC = () => {
                      <label className="text-xs font-bold uppercase tracking-widest text-muted">Bank Name</label>
                      <input 
                        name="bankName"
-                       value={profileData?.bankName || ''}
+                       placeholder="e.g. HDFC Bank"
+                       value={profileData.bankName || ''}
                        onChange={handleProfileChange}
                        className="input-field w-full" 
                      />
@@ -303,7 +316,8 @@ export const Settings: React.FC = () => {
                      <label className="text-xs font-bold uppercase tracking-widest text-muted">Account Number</label>
                      <input 
                        name="bankAccount"
-                       value={profileData?.bankAccount || ''}
+                       placeholder="0000 0000 0000"
+                       value={profileData.bankAccount || ''}
                        onChange={handleProfileChange}
                        className="input-field w-full" 
                      />
@@ -312,7 +326,8 @@ export const Settings: React.FC = () => {
                      <label className="text-xs font-bold uppercase tracking-widest text-muted">IFSC / Swift Code</label>
                      <input 
                        name="ifscCode"
-                       value={profileData?.ifscCode || ''}
+                       placeholder="IFSC12345"
+                       value={profileData.ifscCode || ''}
                        onChange={handleProfileChange}
                        className="input-field w-full" 
                      />
