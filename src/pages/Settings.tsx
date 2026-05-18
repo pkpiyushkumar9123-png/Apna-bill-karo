@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Globe, 
@@ -20,18 +20,38 @@ import {
   Plus,
   X,
   StickyNote,
-  ScrollText
+  ScrollText,
+  Save,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
 import { DEFAULT_NOTE_PRESETS, DEFAULT_TERM_PRESETS } from '../constants/presets.ts';
+import { BusinessProfile } from '../types.ts';
+import * as XLSX from 'xlsx';
 
 export const Settings: React.FC = () => {
   const { profile, settings, updateProfile, updateSettings, isSaving } = useStore();
+  const [profileData, setProfileData] = useState<BusinessProfile | null>(profile);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (!profile) return;
+  useEffect(() => {
+    if (profile && !profileData) {
+      setProfileData(profile);
+    }
+  }, [profile]);
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (!profileData) return;
     const { name, value } = e.target;
-    updateProfile({ ...profile, [name]: value });
+    setProfileData({ ...profileData, [name]: value });
+  };
+
+  const handleSaveProfile = async () => {
+    if (profileData) {
+      await updateProfile(profileData);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    }
   };
 
   const handleExportData = async () => {
@@ -53,6 +73,25 @@ export const Settings: React.FC = () => {
     a.click();
   };
 
+  const handleExportExcel = () => {
+    if (!profileData) return;
+    const ws = XLSX.utils.json_to_sheet([{
+      'Company Name': profileData.name,
+      'Email': profileData.email,
+      'Phone': profileData.phone,
+      'Website': profileData.website,
+      'Address': profileData.address,
+      'Tax ID': profileData.taxId,
+      'Currency': profileData.currency,
+      'Bank Name': profileData.bankName,
+      'Account Number': profileData.bankAccount,
+      'IFSC/Swift': profileData.ifscCode
+    }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Profile');
+    XLSX.writeFile(wb, `business-profile-${Date.now()}.xlsx`);
+  };
+
   const handleResetData = async () => {
     if (confirm('Are you absolutely sure? This will delete ALL invoices, customers, and data forever.')) {
       indexedDB.deleteDatabase('novabill_db');
@@ -62,7 +101,7 @@ export const Settings: React.FC = () => {
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !profile) return;
+    if (!file || !profileData) return;
 
     if (file.size > 2 * 1024 * 1024) {
       alert('Logo must be smaller than 2MB');
@@ -71,14 +110,14 @@ export const Settings: React.FC = () => {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      updateProfile({ ...profile, logoUrl: reader.result as string });
+      setProfileData({ ...profileData, logoUrl: reader.result as string });
     };
     reader.readAsDataURL(file);
   };
 
   const removeLogo = () => {
-    if (!profile) return;
-    updateProfile({ ...profile, logoUrl: '' });
+    if (!profileData) return;
+    setProfileData({ ...profileData, logoUrl: '' });
   };
 
   const addPreset = async (type: 'note' | 'term', value: string) => {
@@ -112,20 +151,38 @@ export const Settings: React.FC = () => {
           <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
           <p className="text-muted">Configure your business profile and application preferences.</p>
         </div>
-        {isSaving && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse border border-primary/20">
-            <RefreshCw size={12} className="animate-spin" />
-            Saving to Workspace...
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-3">
+          {isSaving && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse border border-primary/20">
+              <RefreshCw size={12} className="animate-spin" />
+              Syncing Workspace...
+            </div>
+          )}
+          {showSuccess && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
+              <Check size={12} />
+              Saved Successfully
+            </div>
+          )}
+        </div>
       </div>
 
       <section className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-            <Building2 size={18} />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <Building2 size={18} />
+            </div>
+            <h2 className="text-xl font-bold tracking-tight">Business Profile</h2>
           </div>
-          <h2 className="text-xl font-bold tracking-tight">Business Profile</h2>
+          <button 
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            className="btn-primary py-2 px-6 flex items-center gap-2 text-xs shadow-lg shadow-primary/20 disabled:opacity-50"
+          >
+            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+            Save Changes
+          </button>
         </div>
 
         <div className="glass-card space-y-8">
@@ -134,8 +191,8 @@ export const Settings: React.FC = () => {
                 <label className="text-xs font-bold uppercase tracking-widest text-muted block">Business Logo</label>
                 <div className="relative group">
                    <div className="w-40 h-40 rounded-2xl border-2 border-dashed border-white/10 bg-white/5 overflow-hidden flex items-center justify-center transition-all group-hover:border-primary/50">
-                      {profile?.logoUrl ? (
-                        <img src={profile.logoUrl} alt="Logo" className="w-full h-full object-contain p-4" />
+                      {profileData?.logoUrl ? (
+                        <img src={profileData.logoUrl} alt="Logo" className="w-full h-full object-contain p-4" />
                       ) : (
                         <Upload size={32} className="text-muted group-hover:text-primary transition-colors" />
                       )}
@@ -146,7 +203,7 @@ export const Settings: React.FC = () => {
                         className="absolute inset-0 opacity-0 cursor-pointer" 
                       />
                    </div>
-                   {profile?.logoUrl && (
+                   {profileData?.logoUrl && (
                       <button 
                         onClick={removeLogo}
                         className="absolute -top-2 -right-2 p-1.5 bg-red-500 rounded-full text-white shadow-xl hover:scale-110 transition-all"
@@ -163,7 +220,7 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Legal Business Name</label>
                  <input 
                    name="name"
-                   value={profile?.name || ''}
+                   value={profileData?.name || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -172,7 +229,7 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Email</label>
                  <input 
                    name="email"
-                   value={profile?.email || ''}
+                   value={profileData?.email || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -181,7 +238,7 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Phone Number</label>
                  <input 
                    name="phone"
-                   value={profile?.phone || ''}
+                   value={profileData?.phone || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -190,16 +247,32 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Website</label>
                  <input 
                    name="website"
-                   value={profile?.website || ''}
+                   value={profileData?.website || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
                </div>
-               <div className="md:col-span-2 space-y-2">
+               <div className="space-y-2">
+                 <label className="text-xs font-bold uppercase tracking-widest text-muted">Currency (e.g. USD, INR)</label>
+                 <select
+                   name="currency"
+                   value={profileData?.currency || 'USD'}
+                   onChange={handleProfileChange}
+                   className="input-field w-full bg-transparent"
+                 >
+                   <option value="USD" className="bg-[#0A0A0A]">USD - Dollar ($)</option>
+                   <option value="INR" className="bg-[#0A0A0A]">INR - Rupee (₹)</option>
+                   <option value="EUR" className="bg-[#0A0A0A]">EUR - Euro (€)</option>
+                   <option value="GBP" className="bg-[#0A0A0A]">GBP - Pound (£)</option>
+                   <option value="CAD" className="bg-[#0A0A0A]">CAD - Canadian Dollar ($)</option>
+                   <option value="AUD" className="bg-[#0A0A0A]">AUD - Australian Dollar ($)</option>
+                 </select>
+               </div>
+               <div className="space-y-2">
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Tax ID / VAT Registration</label>
                  <input 
                    name="taxId"
-                   value={profile?.taxId || ''}
+                   value={profileData?.taxId || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full" 
                  />
@@ -208,10 +281,43 @@ export const Settings: React.FC = () => {
                  <label className="text-xs font-bold uppercase tracking-widest text-muted">Business Address</label>
                  <textarea 
                    name="address"
-                   value={profile?.address || ''}
+                   value={profileData?.address || ''}
                    onChange={handleProfileChange}
                    className="input-field w-full h-24 resize-none" 
                  />
+               </div>
+
+               <div className="md:col-span-2 pt-4 border-t border-white/5">
+                 <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-4">Bank Details (For Invoices)</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="space-y-2">
+                     <label className="text-xs font-bold uppercase tracking-widest text-muted">Bank Name</label>
+                     <input 
+                       name="bankName"
+                       value={profileData?.bankName || ''}
+                       onChange={handleProfileChange}
+                       className="input-field w-full" 
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-bold uppercase tracking-widest text-muted">Account Number</label>
+                     <input 
+                       name="bankAccount"
+                       value={profileData?.bankAccount || ''}
+                       onChange={handleProfileChange}
+                       className="input-field w-full" 
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-bold uppercase tracking-widest text-muted">IFSC / Swift Code</label>
+                     <input 
+                       name="ifscCode"
+                       value={profileData?.ifscCode || ''}
+                       onChange={handleProfileChange}
+                       className="input-field w-full" 
+                     />
+                   </div>
+                 </div>
                </div>
              </div>
           </div>
@@ -403,7 +509,7 @@ export const Settings: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
             <Shield size={18} />
           </div>
-          <h2 className="text-xl font-bold tracking-tight">Security & Privacy</h2>
+          <h2 className="text-xl font-bold tracking-tight">Security & Management</h2>
         </div>
 
         <div className="glass-card divide-y divide-white/5">
@@ -416,29 +522,28 @@ export const Settings: React.FC = () => {
                  <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
               </div>
            </div>
-           <div className="py-4 flex items-center justify-between">
-              <div>
-                 <p className="text-sm font-bold">Anonymous Telemetry</p>
-                 <p className="text-xs text-muted">Help us improve NovaBill by sharing usage data anonymously.</p>
-              </div>
-              <div className="w-12 h-6 bg-white/10 rounded-full relative grayscale opacity-50">
-                 <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full" />
-              </div>
-           </div>
-           <div className="pt-6 flex flex-col sm:flex-row gap-4">
+           
+           <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
                 onClick={handleExportData}
-                className="flex-1 py-3 px-6 glass rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                className="py-3 px-6 glass rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
               >
                  <Download size={14} />
-                 Backup Local Storage
+                 Backup (JSON)
+              </button>
+              <button 
+                onClick={handleExportExcel}
+                className="py-3 px-6 glass rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                 <FileSpreadsheet size={14} />
+                 Profile (Excel)
               </button>
               <button 
                 onClick={handleResetData}
-                className="flex-1 py-3 px-6 rounded-xl text-red-500 bg-red-500/10 text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
+                className="sm:col-span-2 py-3 px-6 rounded-xl text-red-500 bg-red-500/10 text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
               >
                  <Trash2 size={14} />
-                 Reset All Local Data
+                 Permanent Data Reset
               </button>
            </div>
         </div>

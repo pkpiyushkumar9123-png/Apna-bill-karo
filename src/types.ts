@@ -16,6 +16,10 @@ export interface BusinessProfile {
   currency: string;
   notePresets?: string[];
   termPresets?: string[];
+  bankName?: string;
+  bankAccount?: string;
+  ifscCode?: string;
+  signature?: string;
 }
 
 export interface Customer {

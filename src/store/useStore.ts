@@ -178,14 +178,15 @@ export const useStore = create<AppState>((set, get) => ({
     
     if (invoice.status === 'paid') {
       invoice.items.forEach(item => {
-        if (item.productId) {
-          const idx = currentProducts.findIndex(p => p.id === item.productId);
+        const prodId = item.productId || currentProducts.find(p => p.name === item.description)?.id;
+        if (prodId) {
+          const idx = currentProducts.findIndex(p => p.id === prodId);
           if (idx !== -1) {
             currentProducts[idx] = { 
               ...currentProducts[idx], 
               stockLevel: Math.max(0, currentProducts[idx].stockLevel - item.quantity) 
             };
-            touchedIds.add(item.productId);
+            touchedIds.add(prodId as string);
           }
         }
       });
@@ -224,14 +225,15 @@ export const useStore = create<AppState>((set, get) => ({
       // 1. If it WAS paid, return old items to physical stock first
       if (wasPaid) {
         oldInvoice.items.forEach(item => {
-          if (item.productId) {
-            const idx = products.findIndex(p => p.id === item.productId);
+          const prodId = item.productId || products.find(p => p.name === item.description)?.id;
+          if (prodId) {
+            const idx = products.findIndex(p => p.id === prodId);
             if (idx !== -1) {
               products[idx] = { 
                 ...products[idx], 
                 stockLevel: products[idx].stockLevel + item.quantity 
               };
-              touchedIds.add(item.productId);
+              touchedIds.add(prodId as string);
             }
           }
         });
@@ -240,14 +242,15 @@ export const useStore = create<AppState>((set, get) => ({
       // 2. If it IS NOW paid, subtract new items from physical stock
       if (isPaid) {
         invoice.items.forEach(item => {
-          if (item.productId) {
-            const idx = products.findIndex(p => p.id === item.productId);
+          const prodId = item.productId || products.find(p => p.name === item.description)?.id;
+          if (prodId) {
+            const idx = products.findIndex(p => p.id === prodId);
             if (idx !== -1) {
               products[idx] = { 
                 ...products[idx], 
                 stockLevel: Math.max(0, products[idx].stockLevel - item.quantity) 
               };
-              touchedIds.add(item.productId);
+              touchedIds.add(prodId as string);
             }
           }
         });
@@ -282,14 +285,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (invoice && invoice.status === 'paid') {
       // Return items to physical stock only if they were deducted (was paid)
       invoice.items.forEach(item => {
-        if (item.productId) {
-          const idx = products.findIndex(p => p.id === item.productId);
+        const prodId = item.productId || products.find(p => p.name === item.description)?.id;
+        if (prodId) {
+          const idx = products.findIndex(p => p.id === prodId);
           if (idx !== -1) {
             products[idx] = { 
               ...products[idx], 
               stockLevel: products[idx].stockLevel + item.quantity 
             };
-            touchedIds.add(item.productId);
+            touchedIds.add(prodId as string);
           }
         }
       });

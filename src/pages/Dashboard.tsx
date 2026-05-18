@@ -110,11 +110,13 @@ export const Dashboard: React.FC = () => {
       const pendingQty = invoices
         .filter(inv => inv.status !== 'paid' && inv.status !== 'draft')
         .reduce((sum, inv) => {
-          const item = inv.items.find(i => i.productId === p.id);
-          return sum + (item?.quantity || 0);
+          const productItems = inv.items.filter(i => 
+            i.productId === p.id || (!i.productId && i.description === p.name)
+          );
+          return sum + productItems.reduce((s, item) => s + item.quantity, 0);
         }, 0);
       return { ...p, available: Math.max(0, p.stockLevel - pendingQty) };
-    }).filter(p => p.available <= p.minStockLevel).slice(0, 4);
+    }).filter(p => p.available <= (p.minStockLevel || 0) * 2).sort((a, b) => (a.available / (a.minStockLevel || 1)) - (b.available / (b.minStockLevel || 1))).slice(0, 4);
   }, [products, invoices]);
 
   return (
@@ -235,8 +237,8 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full ${product.available <= product.minStockLevel ? 'bg-red-500' : 'bg-primary'}`}
-                      style={{ width: `${Math.min(100, (product.available / (product.minStockLevel || 1)) * 50)}%` }}
+                      className={`h-full ${product.available <= product.minStockLevel ? 'bg-red-500' : 'bg-green-500'}`}
+                      style={{ width: `${Math.min(100, (product.available / (product.minStockLevel || 1)) * 100)}%` }}
                     />
                   </div>
                 </div>
@@ -281,7 +283,7 @@ export const Dashboard: React.FC = () => {
                     <p className="text-[10px] text-muted uppercase tracking-widest">{format(inv.date, 'MMM dd')}</p>
                   </td>
                   <td className="py-4">
-                    <p className="text-sm font-medium">Customer {inv.customerId.slice(-4)}</p>
+                    <p className="text-sm font-medium">Customer {inv.customerId ? inv.customerId.slice(-4) : 'Walk-in'}</p>
                   </td>
                   <td className="py-4">
                     <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${

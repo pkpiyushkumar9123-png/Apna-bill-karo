@@ -100,6 +100,7 @@ export const ExcelService = {
       // Handle Settings/BusinessProfile mapping
       if ('name' in item && 'currency' in item && !('price' in item) && !('number' in item)) {
         return {
+          id: item.id || 'default',
           company_name: item.name,
           email: item.email || '',
           phone: item.phone || '',
@@ -108,6 +109,8 @@ export const ExcelService = {
           tax_id: item.taxId || '',
           currency: item.currency || 'INR',
           logo_url: item.logoUrl || '',
+          note_presets: JSON.stringify(item.notePresets || []),
+          term_presets: JSON.stringify(item.termPresets || []),
           signature: item.signature || '',
           bank_name: item.bankName || '',
           bank_account: item.bankAccount || '',
@@ -209,6 +212,7 @@ export const ExcelService = {
       // Map Settings back
       if (item.company_name && item.currency) {
         return {
+          id: item.id || 'default',
           name: item.company_name,
           email: item.email,
           phone: item.phone,
@@ -217,6 +221,8 @@ export const ExcelService = {
           taxId: item.tax_id,
           currency: item.currency,
           logoUrl: item.logo_url,
+          notePresets: typeof item.note_presets === 'string' ? JSON.parse(item.note_presets) : [],
+          termPresets: typeof item.term_presets === 'string' ? JSON.parse(item.term_presets) : [],
           signature: item.signature,
           bankName: item.bank_name,
           bankAccount: item.bank_account,

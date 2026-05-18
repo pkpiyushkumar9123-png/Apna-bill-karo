@@ -34,14 +34,16 @@ export const Products: React.FC = () => {
       let paidQty = 0;
 
       invoices.forEach(inv => {
-        const item = inv.items.find(i => i.productId === p.id);
-        if (item) {
+        const productItems = inv.items.filter(i => 
+          i.productId === p.id || (!i.productId && i.description === p.name)
+        );
+        productItems.forEach(item => {
           if (inv.status === 'paid') {
             paidQty += item.quantity;
           } else if (inv.status !== 'draft') {
             pendingQty += item.quantity;
           }
-        }
+        });
       });
       
       const available = Math.max(0, p.stockLevel - pendingQty);
@@ -197,9 +199,9 @@ export const Products: React.FC = () => {
                 <div className="w-full space-y-3">
                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest px-1">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-red-500" />
-                        <span className="text-muted">Left:</span>
-                        <span className="text-red-500">{product.available} {product.unit}</span>
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-muted">Available:</span>
+                        <span className="text-green-500">{product.available} {product.unit}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-yellow-500" />
@@ -209,7 +211,7 @@ export const Products: React.FC = () => {
                    </div>
                    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden flex">
                       <div 
-                         className="h-full bg-red-500 transition-all duration-500"
+                         className="h-full bg-green-500 transition-all duration-500"
                          style={{ width: `${(product.available / product.lifetimeTotal) * 100}%` }}
                       />
                       <div 
@@ -217,7 +219,7 @@ export const Products: React.FC = () => {
                          style={{ width: `${(product.pendingQty / product.lifetimeTotal) * 100}%` }}
                       />
                       <div 
-                         className="h-full bg-white/10 transition-all duration-500"
+                         className="h-full bg-red-500 transition-all duration-500"
                          style={{ width: `${(product.paidQty / product.lifetimeTotal) * 100}%` }}
                       />
                    </div>

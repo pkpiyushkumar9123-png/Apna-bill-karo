@@ -20,6 +20,7 @@ import {
   Copy,
   BookOpen
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
 import { Invoice, InvoiceItem } from '../types.ts';
 import { format } from 'date-fns';
@@ -34,6 +35,7 @@ function cn(...inputs: ClassValue[]) {
 
 const itemSchema = z.object({
   id: z.string(),
+  productId: z.string().optional(),
   description: z.string().min(1, 'Description is required'),
   quantity: z.number().min(1),
   price: z.number().min(0),
@@ -67,6 +69,21 @@ export const InvoiceEditor: React.FC = () => {
   const [newProduct, setNewProduct] = useState({ name: '', price: 0, taxRate: 0 });
   const [showNotePresets, setShowNotePresets] = useState(false);
   const [showTermPresets, setShowTermPresets] = useState(false);
+  const [stockWarning, setStockWarning] = useState<{ name: string; needed: number; available: number } | null>(null);
+
+  const getProductAvailability = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return 0;
+    
+    const pendingQty = invoices
+      .filter(inv => inv.id !== id && inv.status !== 'paid' && inv.status !== 'draft')
+      .reduce((sum, inv) => {
+        const item = inv.items.find(i => i.productId === productId);
+        return sum + (item?.quantity || 0);
+      }, 0);
+      
+    return Math.max(0, product.stockLevel - pendingQty);
+  };
 
   const handleQuickCustomer = async () => {
     if (!newCustomer.name || !newCustomer.email) return;
@@ -84,9 +101,13 @@ export const InvoiceEditor: React.FC = () => {
       ...newProduct, 
       id: pid, 
       unit: 'Item', 
+      sku: `PROD-${pid.toUpperCase()}`,
+      stockLevel: 100, // Default for quick add
+      minStockLevel: 10,
       createdAt: Date.now() 
     });
     setValue(`items.${index}.description`, newProduct.name);
+    setValue(`items.${index}.productId`, pid);
     setValue(`items.${index}.price`, newProduct.price);
     setValue(`items.${index}.taxRate`, newProduct.taxRate);
     setShowQuickProduct(null);
@@ -98,7 +119,7 @@ export const InvoiceEditor: React.FC = () => {
     return null;
   }, [id, invoices]);
 
-  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<InvoiceFormData>({
+  const { register, control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: initialInvoice ? {
       number: initialInvoice.number,
@@ -124,6 +145,40 @@ export const InvoiceEditor: React.FC = () => {
       accentColor: '#3B82F6',
     }
   });
+
+  useEffect(() => {
+    if (initialInvoice) {
+      reset({
+        number: initialInvoice.number,
+        date: initialInvoice.date,
+        dueDate: initialInvoice.dueDate,
+        customerId: initialInvoice.customerId,
+        items: initialInvoice.items,
+        notes: initialInvoice.notes,
+        terms: initialInvoice.terms,
+        category: initialInvoice.category || '',
+        templateId: initialInvoice.templateId || 'modern',
+        accentColor: (initialInvoice as any).accentColor || '#3B82F6',
+      });
+    } else if (!id) {
+      reset({
+        number: `INV-${Date.now().toString().slice(-6)}`,
+        date: Date.now(),
+        dueDate: Date.now() + 86400000 * 7,
+        customerId: '',
+        items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0 }],
+        notes: '',
+        terms: '',
+        category: '',
+        templateId: 'modern',
+        accentColor: '#3B82F6',
+      });
+    }
+  }, [id, initialInvoice, reset]);
+
+  const onInvalid = (errors: any) => {
+    console.error('Form Validation Errors:', errors);
+  };
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -169,35 +224,44 @@ export const InvoiceEditor: React.FC = () => {
     };
   }, [watchedItems]);
 
+  const [isFormSaving, setIsFormSaving] = useState(false);
   const onSubmit = async (data: InvoiceFormData) => {
-    const invoiceData: Invoice = {
-      ...data,
-      id: id || Math.random().toString(36).substr(2, 9),
-      businessId: profile?.id || 'default',
-      subtotal: totals.subtotal,
-      taxTotal: totals.taxTotal,
-      discountTotal: totals.discountTotal,
-      total: totals.total,
-      status: initialInvoice?.status || 'draft',
-      templateId: data.templateId || 'modern',
-      accentColor: data.accentColor,
-      currency: profile?.currency || 'USD',
-      createdAt: initialInvoice?.createdAt || Date.now(),
-      updatedAt: Date.now(),
-    };
+    try {
+      setIsFormSaving(true);
+      const invoiceData: Invoice = {
+        ...data,
+        id: id || Math.random().toString(36).substr(2, 9),
+        businessId: profile?.id || 'default',
+        subtotal: totals.subtotal,
+        taxTotal: totals.taxTotal,
+        discountTotal: totals.discountTotal,
+        total: totals.total,
+        status: initialInvoice?.status || 'draft',
+        templateId: data.templateId || 'modern',
+        accentColor: data.accentColor,
+        currency: profile?.currency || 'USD',
+        createdAt: initialInvoice?.createdAt || Date.now(),
+        updatedAt: Date.now(),
+      };
 
-    if (id) {
-      await updateInvoice(invoiceData);
-    } else {
-      await addInvoice(invoiceData);
-    }
+      if (id) {
+        await updateInvoice(invoiceData);
+      } else {
+        await addInvoice(invoiceData);
+      }
 
-    if ((window as any)._saveAndNew) {
-      (window as any)._saveAndNew = false;
-      navigate('/invoices/new', { replace: true });
-      window.location.reload(); // Hard reset for freshness
-    } else {
-      navigate('/invoices');
+      if ((window as any)._saveAndNew) {
+        (window as any)._saveAndNew = false;
+        navigate('/invoices/new', { replace: true });
+        window.location.reload();
+      } else {
+        navigate('/invoices');
+      }
+    } catch (err) {
+      console.error('Failed to save invoice:', err);
+      alert('Failed to save invoice. Please check the console for details.');
+    } finally {
+      setIsFormSaving(false);
     }
   };
 
@@ -402,20 +466,22 @@ export const InvoiceEditor: React.FC = () => {
           <button 
             type="submit" 
             form="invoice-form"
-            className="btn-primary py-2.5 px-6 flex items-center gap-2 text-xs shadow-lg shadow-primary/20 shrink-0"
+            disabled={isFormSaving}
+            className="btn-primary py-2.5 px-6 flex items-center gap-2 text-xs shadow-lg shadow-primary/20 shrink-0 disabled:opacity-50"
           >
-            <Save size={16} />
-            Save <span className="hidden sm:inline">Invoice</span>
+            {isFormSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
+            {isFormSaving ? 'Saving...' : 'Save Invoice'}
           </button>
           {!id && (
             <button 
               type="submit" 
               form="invoice-form"
+              disabled={isFormSaving}
               onClick={() => {
                 // We'll handle this in the submit handler by checking a flag
                 (window as any)._saveAndNew = true;
               }}
-              className="btn-secondary py-2.5 px-6 flex items-center gap-2 text-xs shrink-0"
+              className="btn-secondary py-2.5 px-6 flex items-center gap-2 text-xs shrink-0 disabled:opacity-50"
             >
               Save & New
             </button>
@@ -424,12 +490,43 @@ export const InvoiceEditor: React.FC = () => {
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative">
+        {/* Stock Warning Dialog */}
+        <AnimatePresence>
+          {stockWarning && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="glass-card max-w-md w-full border-red-500/30 p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.2)]"
+              >
+                <div className="w-16 h-16 bg-red-400/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 border border-red-500/20">
+                  <Info size={32} />
+                </div>
+                <h3 className="text-xl font-black mb-2 italic uppercase">Inventory Shortage</h3>
+                <p className="text-muted text-sm mb-6 leading-relaxed">
+                  You are attempting to add more <span className="text-white font-bold">{stockWarning.name}</span> than what is available.
+                  <br />
+                  <span className="text-red-500 font-bold block mt-2">Shortage: {stockWarning.needed} units needed</span>
+                  <span className="text-green-500 text-[10px] uppercase font-bold tracking-widest">Current Available: {stockWarning.available}</span>
+                </p>
+                <button 
+                  onClick={() => setStockWarning(null)}
+                  className="w-full py-4 btn-primary bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-red-500/20"
+                >
+                  Understood
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* Main Editor Area */}
         <div className={cn(
           "lg:col-span-8 space-y-8 transition-all duration-500",
           isPreview && "opacity-0 invisible absolute"
         )}>
-          <form id="invoice-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-24">
+          <form id="invoice-form" onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8 pb-24">
             {/* Basic Info */}
             <div className="glass-card grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-2">
@@ -619,18 +716,32 @@ export const InvoiceEditor: React.FC = () => {
                                   </div>
                                </div>
                             ) : products.length > 0 ? (
-                               products.filter(p => !watchedItems[index]?.description || p.name.toLowerCase().includes(watchedItems[index].description.toLowerCase())).map(p => (
+                               products.filter(p => {
+                                 const search = watchedItems[index]?.description?.toLowerCase() || '';
+                                 return p.name.toLowerCase().includes(search);
+                               }).map(p => (
                                 <button 
                                   key={p.id}
                                   type="button"
                                   onMouseDown={() => {
                                     setValue(`items.${index}.description`, p.name);
+                                    setValue(`items.${index}.productId`, p.id);
                                     setValue(`items.${index}.price`, p.price);
                                     setValue(`items.${index}.taxRate`, p.taxRate || 0);
+                                    
+                                    const avail = getProductAvailability(p.id);
+                                    if (avail < 1) {
+                                      setStockWarning({ name: p.name, needed: 1, available: avail });
+                                    }
                                   }}
                                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 text-sm flex justify-between items-center group/item"
                                 >
-                                  <span>{p.name}</span>
+                                  <div className="flex flex-col">
+                                     <span>{p.name}</span>
+                                     <span className="text-[8px] text-muted uppercase font-bold tracking-widest">
+                                       Avail: {getProductAvailability(p.id)} {p.unit}
+                                     </span>
+                                  </div>
                                   <span className="text-[10px] font-black font-mono text-muted group-hover/item:text-primary">${p.price}</span>
                                 </button>
                               ))
@@ -647,7 +758,23 @@ export const InvoiceEditor: React.FC = () => {
                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
                            <input 
                              type="number"
-                             {...register(`items.${index}.quantity` as const, { valueAsNumber: true })} 
+                             {...register(`items.${index}.quantity` as const, { 
+                               valueAsNumber: true,
+                               onChange: (e) => {
+                                 const qty = parseInt(e.target.value);
+                                 const prodId = watchedItems[index]?.productId;
+                                 if (prodId) {
+                                   const avail = getProductAvailability(prodId);
+                                   if (qty > avail) {
+                                     setStockWarning({ 
+                                       name: watchedItems[index]?.description || 'Item', 
+                                       needed: qty - avail, 
+                                       available: avail 
+                                     });
+                                   }
+                                 }
+                               }
+                             })} 
                              className="input-field w-full text-sm text-center font-bold h-11"
                            />
                         </div>
