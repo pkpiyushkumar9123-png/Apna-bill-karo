@@ -47,7 +47,13 @@ export const Settings: React.FC = () => {
     bankName: '',
     bankAccount: '',
     ifscCode: '',
-    upiId: ''
+    upiId: '',
+    bankAddress: '',
+    holderName: '',
+    iban: '',
+    swiftCode: '',
+    routingNumber: '',
+    paypalId: ''
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -358,9 +364,9 @@ export const Settings: React.FC = () => {
                          <CreditCard className="text-primary" size={18} />
                          <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Financial Routing Details</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Entity Name</label>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Entity/Bank Name</label>
                           <input 
                             name="bankName"
                             placeholder="Nexus Financial"
@@ -370,7 +376,7 @@ export const Settings: React.FC = () => {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Account Vault</label>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Account Number</label>
                           <input 
                             name="bankAccount"
                             placeholder="0000 0000 0000"
@@ -380,7 +386,7 @@ export const Settings: React.FC = () => {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Swift / Branch ID</label>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Branch Code (IFSC / Sort Code)</label>
                           <input 
                             name="ifscCode"
                             placeholder="NXFS12345"
@@ -389,6 +395,7 @@ export const Settings: React.FC = () => {
                             className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm" 
                           />
                         </div>
+
                         <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">UPI ID (instant QR code)</label>
                           <input 
@@ -397,6 +404,68 @@ export const Settings: React.FC = () => {
                             value={profileData.upiId || ''}
                             onChange={handleProfileChange}
                             className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm text-primary" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Account Holder Name</label>
+                          <input 
+                            name="holderName"
+                            placeholder="John Doe"
+                            value={profileData.holderName || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] text-sm" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">SWIFT / BIC Code</label>
+                          <input 
+                            name="swiftCode"
+                            placeholder="NXFSUS33XXX"
+                            value={profileData.swiftCode || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm" 
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">IBAN Number</label>
+                          <input 
+                            name="iban"
+                            placeholder="US00 0000 0000 ..."
+                            value={profileData.iban || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Routing (ACH/ABA)</label>
+                          <input 
+                            name="routingNumber"
+                            placeholder="123456789"
+                            value={profileData.routingNumber || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">PayPal Link / ID</label>
+                          <input 
+                            name="paypalId"
+                            placeholder="paypal.me/yourbusiness"
+                            value={profileData.paypalId || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] text-sm text-primary" 
+                          />
+                        </div>
+
+                        <div className="md:col-span-3 space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Bank Address</label>
+                          <input 
+                            name="bankAddress"
+                            placeholder="123 Financial District, Manhattan, NY"
+                            value={profileData.bankAddress || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] text-sm" 
                           />
                         </div>
                       </div>

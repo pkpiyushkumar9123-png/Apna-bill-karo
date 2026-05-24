@@ -257,11 +257,11 @@ export const InvoiceEditor: React.FC = () => {
 
         if (qrText) {
           const url = await QRCode.toDataURL(qrText, {
-            margin: 1,
+            margin: 4,
             width: 256,
             color: {
               dark: '#000000',
-              light: '#FFFFFF'
+              light: '#ffffff'
             }
           });
           if (active) setQrUrl(url);

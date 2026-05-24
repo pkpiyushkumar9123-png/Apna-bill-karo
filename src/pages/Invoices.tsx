@@ -537,42 +537,6 @@ export const Invoices: React.FC = () => {
                   </NavLink>
                 </div>
 
-                {/* Payment Recording */}
-                {(selectedInvoice.status === 'partial' || selectedInvoice.status === 'paid') && (
-                  <div className="p-6 rounded-3xl bg-primary/5 border border-primary/20 space-y-4 animate-in fade-in slide-in-from-top-4">
-                     <div className="flex justify-between items-center">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-primary">Record Payment</label>
-                        <span className="text-[10px] font-mono text-muted">Total: ${selectedInvoice.total.toFixed(2)}</span>
-                     </div>
-                     <div className="flex gap-3">
-                        <div className="relative flex-1">
-                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">$</span>
-                           <input 
-                              type="number"
-                              value={selectedInvoice.paidAmount || ''}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                updateInvoice({ 
-                                  ...selectedInvoice, 
-                                  paidAmount: val,
-                                  status: val >= selectedInvoice.total ? 'paid' : val > 0 ? 'partial' : selectedInvoice.status 
-                                });
-                              }}
-                              className="input-field w-full pl-8 py-3 text-sm font-black font-mono border-primary/20 focus:border-primary"
-                              placeholder="0.00"
-                           />
-                        </div>
-                        <button 
-                          onClick={() => updateInvoice({ ...selectedInvoice, paidAmount: selectedInvoice.total, status: 'paid' })}
-                          className="px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-                        >
-                          Full
-                        </button>
-                     </div>
-                     <p className="text-[9px] text-muted italic">This amount will reflect as revenue in your accounting dashboard.</p>
-                  </div>
-                )}
-
                 {/* Status Slider Container */}
                 <div className="space-y-4 pt-4 border-t border-white/5">
                   <div className="flex items-center justify-between px-1">
@@ -588,8 +552,44 @@ export const Invoices: React.FC = () => {
                   {/* The Sliding Bar */}
                   <StatusSlider 
                     currentStatus={selectedInvoice.status} 
-                    onUpdate={(status) => updateInvoice({ ...selectedInvoice, status })}
+                    onUpdate={(status) => {
+                      const newPaidAmount = status === 'paid' ? selectedInvoice.total : status === 'draft' ? 0 : selectedInvoice.paidAmount || 0;
+                      updateInvoice({ ...selectedInvoice, status, paidAmount: newPaidAmount });
+                    }}
                   />
+                </div>
+
+                {/* Payment Recording (Permanently Below Slider) */}
+                <div className="p-6 rounded-3xl bg-primary/5 border border-primary/20 space-y-4 animate-in fade-in slide-in-from-top-4">
+                   <div className="space-y-1">
+                      <label className="text-[11px] font-black uppercase tracking-widest text-primary block">RECORD PAYMENT</label>
+                      <p className="text-[10px] text-muted leading-relaxed font-medium">This amount will reflect as revenue in your accounting</p>
+                   </div>
+                   <div className="flex gap-3">
+                      <div className="relative flex-1">
+                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm">$</span>
+                         <input 
+                             type="number"
+                             value={selectedInvoice.paidAmount || ''}
+                             onChange={(e) => {
+                               const val = parseFloat(e.target.value) || 0;
+                               updateInvoice({ 
+                                 ...selectedInvoice, 
+                                 paidAmount: val,
+                                 status: val >= selectedInvoice.total ? 'paid' : val > 0 ? 'partial' : selectedInvoice.status 
+                               });
+                             }}
+                             className="input-field w-full pl-8 py-3 text-sm font-black font-mono border-primary/20 focus:border-primary"
+                             placeholder="0.00"
+                         />
+                      </div>
+                      <button 
+                        onClick={() => updateInvoice({ ...selectedInvoice, paidAmount: selectedInvoice.total, status: 'paid' })}
+                        className="px-4 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                      >
+                        Full
+                      </button>
+                   </div>
                 </div>
 
                 {/* Danger Zone */}

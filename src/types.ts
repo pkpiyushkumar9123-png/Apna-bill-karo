@@ -20,6 +20,12 @@ export interface BusinessProfile {
   bankAccount?: string;
   ifscCode?: string;
   upiId?: string;
+  bankAddress?: string;
+  holderName?: string;
+  iban?: string;
+  swiftCode?: string;
+  routingNumber?: string;
+  paypalId?: string;
   signature?: string;
 }
 

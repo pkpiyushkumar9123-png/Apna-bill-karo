@@ -114,7 +114,14 @@ export const ExcelService = {
           signature: item.signature || '',
           bank_name: item.bankName || '',
           bank_account: item.bankAccount || '',
-          ifsc_code: item.ifscCode || ''
+          ifsc_code: item.ifscCode || '',
+          upi_id: item.upiId || '',
+          bank_address: item.bankAddress || '',
+          holder_name: item.holderName || '',
+          iban: item.iban || '',
+          swift_code: item.swiftCode || '',
+          routing_number: item.routingNumber || '',
+          paypal_id: item.paypalId || ''
         };
       }
 
@@ -226,7 +233,14 @@ export const ExcelService = {
           signature: item.signature,
           bankName: item.bank_name,
           bankAccount: item.bank_account,
-          ifscCode: item.ifsc_code
+          ifscCode: item.ifsc_code,
+          upiId: item.upi_id,
+          bankAddress: item.bank_address,
+          holderName: item.holder_name,
+          iban: item.iban,
+          swiftCode: item.swift_code,
+          routingNumber: item.routing_number,
+          paypalId: item.paypal_id
         } as any;
       }
 

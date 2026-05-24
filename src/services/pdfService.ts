@@ -145,11 +145,11 @@ export const generateInvoicePDF = async (invoice: Invoice, profile: BusinessProf
   if (qrText) {
     try {
       const qrDataUrl = await QRCode.toDataURL(qrText, {
-        margin: 1,
+        margin: 4,
         width: 256,
         color: {
           dark: '#000000',
-          light: '#FFFFFF'
+          light: '#ffffff'
         }
       });
 
