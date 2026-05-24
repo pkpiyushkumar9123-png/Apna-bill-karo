@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { Invoice, BusinessProfile, Customer } from '../types.ts';
 import { format } from 'date-fns';
+import QRCode from 'qrcode';
 
 export const generateInvoicePDF = async (invoice: Invoice, profile: BusinessProfile | null, customer: Customer | undefined) => {
   const doc = new jsPDF({
@@ -121,6 +122,89 @@ export const generateInvoicePDF = async (invoice: Invoice, profile: BusinessProf
   doc.text('TOTAL', 140, totalY + 18);
   doc.setTextColor(primary);
   doc.text(`$${invoice.total.toFixed(2)}`, 175, totalY + 18);
+
+  // Save the PDF button trigger
+  // Construct details to generate QR Payment Code
+  let qrText = '';
+  const amt = invoice.total.toFixed(2);
+  const currency = invoice.currency || profile?.currency || 'USD';
+
+  if (profile?.upiId) {
+    const payeeName = profile.name || 'Merchant';
+    const note = `Invoice ${invoice.number}`;
+    qrText = `upi://pay?pa=${profile.upiId}&pn=${encodeURIComponent(payeeName)}&am=${amt}&cu=${currency}&tn=${encodeURIComponent(note)}`;
+  } else if (profile?.bankAccount || profile?.ifscCode) {
+    const bankName = profile.bankName || '';
+    const bankAcc = profile.bankAccount || '';
+    const ifsc = profile.ifscCode || '';
+    const payee = profile.name || '';
+    const identifier = invoice.number || 'Invoice_Tx';
+    qrText = `Payee: ${payee}\nBank: ${bankName}\nAccount: ${bankAcc}\nIFS Code: ${ifsc}\nAmount: ${amt}\nRef: ${identifier}`;
+  }
+
+  if (qrText) {
+    try {
+      const qrDataUrl = await QRCode.toDataURL(qrText, {
+        margin: 1,
+        width: 256,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+
+      // Draw a light gray frame/card for QR Code & Payment Info
+      doc.setFillColor(250, 250, 250);
+      doc.setDrawColor(230, 230, 230);
+      // Draw box from x = 20 to 125 (width 105), height 35
+      doc.roundedRect(20, totalY - 5, 105, 35, 3, 3, 'FD');
+
+      // Add QR Code at x = 24, y = totalY - 2, size = 28x28
+      doc.addImage(qrDataUrl, 'PNG', 24, totalY - 2, 28, 28);
+
+      // Text details on the right of QR code (starting at x = 56)
+      doc.setTextColor(black);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('PAYMENT ROUTING / QR GATEWAY', 56, totalY + 2);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gray);
+      doc.setFontSize(7);
+      doc.text('Scan using any UPI App or Mobile Banking App to settle.', 56, totalY + 6);
+
+      doc.setTextColor(black);
+      doc.setFontSize(8);
+      if (profile?.upiId) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('UPI ID:', 56, totalY + 13);
+        doc.setFont('helvetica', 'normal');
+        doc.text(profile.upiId, 72, totalY + 13);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Beneficiary:', 56, totalY + 18);
+        doc.setFont('helvetica', 'normal');
+        doc.text(profile.name || 'Merchant', 76, totalY + 18);
+      } else {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Bank Name:', 56, totalY + 12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(profile?.bankName || 'N/A', 75, totalY + 12);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('A/C Number:', 56, totalY + 17);
+        doc.setFont('helvetica', 'normal');
+        doc.text(profile?.bankAccount || 'N/A', 75, totalY + 17);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('IFS Code:', 56, totalY + 22);
+        doc.setFont('helvetica', 'normal');
+        doc.text(profile?.ifscCode || 'N/A', 75, totalY + 22);
+      }
+    } catch (err) {
+      console.error('Failed to embed QR code in PDF:', err);
+    }
+  }
 
   // Footer
   doc.setFontSize(8);

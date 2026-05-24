@@ -34,14 +34,17 @@ export class WorkspaceService {
   /**
    * Try to restore handle from IndexedDB
    */
-  static async restore(): Promise<string | null> {
+  static async restore(): Promise<{ name: string; needsPermission: boolean } | null> {
     const savedHandle = await get(STORAGE_KEY);
     if (savedHandle) {
       try {
         // Verify permission (it almost always returns 'prompt' on reload)
-        if (await savedHandle.queryPermission({ mode: 'readwrite' }) === 'granted') {
+        const permission = await savedHandle.queryPermission({ mode: 'readwrite' });
+        if (permission === 'granted') {
           this.handle = savedHandle;
-          return savedHandle.name;
+          return { name: savedHandle.name, needsPermission: false };
+        } else {
+          return { name: savedHandle.name, needsPermission: true };
         }
       } catch (e) {
         await del(STORAGE_KEY);

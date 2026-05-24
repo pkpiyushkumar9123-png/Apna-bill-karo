@@ -75,19 +75,23 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isLoading: true });
     try {
       // 1. Try to restore workspace
-      const restoredName = await WorkspaceService.restore();
-      if (restoredName) {
-        set({ workspaceConnected: true, workspaceName: restoredName });
+      const restored = await WorkspaceService.restore();
+      if (restored) {
+        set({ 
+          workspaceConnected: true, 
+          workspaceName: restored.name,
+          needsPermission: restored.needsPermission
+        });
       }
 
-      // 2. Load from Excel if connected, otherwise IndexedDB
+      // 2. Load from Excel if connected and permission is granted, otherwise IndexedDB
       let invoices: Invoice[] = [];
       let customers: Customer[] = [];
       let products: Product[] = [];
       let expenses: Expense[] = [];
       let settings: (AppSettings & { profile?: BusinessProfile }) | null = null;
 
-      if (get().workspaceConnected) {
+      if (get().workspaceConnected && !get().needsPermission) {
         [invoices, customers, products, expenses, settings] = await Promise.all([
           WorkspaceService.loadData<Invoice>('invoices'),
           WorkspaceService.loadData<Customer>('customers'),
@@ -106,7 +110,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       // If we loaded from Excel, sync to IndexedDB (as cache)
-      if (get().workspaceConnected) {
+      if (get().workspaceConnected && !get().needsPermission) {
         for (const i of invoices) await dbService.put('invoices', i);
         for (const c of customers) await dbService.put('customers', c);
         for (const p of products) await dbService.put('products', p);
@@ -170,7 +174,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   disconnectWorkspace: () => {
     WorkspaceService.disconnect();
-    set({ workspaceConnected: false, workspaceName: null });
+    set({ workspaceConnected: false, workspaceName: null, needsPermission: false });
   },
 
   addInvoice: async (invoice) => {
