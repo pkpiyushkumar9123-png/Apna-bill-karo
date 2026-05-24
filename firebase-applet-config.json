@@ -3,6 +3,7 @@
   "appId": "1:730388495815:web:283024e5846d2a4ef7ede2",
   "apiKey": "AIzaSyC_dJ-iJyoYxoRqdQFnRYgcnKUaP-dUKAM",
   "authDomain": "unique-ensign-g9z5m.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-0602ab4f-81f8-43c0-b9e5-ec5b3bebf2ee",
   "storageBucket": "unique-ensign-g9z5m.firebasestorage.app",
   "messagingSenderId": "730388495815",
   "measurementId": ""
