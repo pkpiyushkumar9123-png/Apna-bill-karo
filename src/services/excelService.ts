@@ -98,7 +98,7 @@ export const ExcelService = {
       }
 
       // Handle Settings/BusinessProfile mapping
-      if ('name' in item && 'currency' in item && !('price' in item) && !('number' in item)) {
+      if (('currency' in item && !('price' in item) && !('number' in item) && !('amount' in item) && !('createdAt' in item)) || 'bankName' in item || 'upiId' in item || 'paypalId' in item) {
         return {
           id: item.id || 'default',
           company_name: item.name,
@@ -217,7 +217,7 @@ export const ExcelService = {
       }
 
       // Map Settings back
-      if (item.company_name && item.currency) {
+      if (item.company_name !== undefined || item.currency !== undefined || item.bank_name !== undefined || item.bank_account !== undefined || (item.id === 'default' && !item.invoice_id && !item.customer_id && !item.product_id && !item.expense_id)) {
         return {
           id: item.id || 'default',
           name: item.company_name,

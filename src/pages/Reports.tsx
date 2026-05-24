@@ -73,8 +73,8 @@ export const Reports: React.FC = () => {
   const COLORS = ['#FF4444', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
-    <div className="p-6 space-y-8 max-w-[1600px] mx-auto pb-20">
-      <div className="flex justify-between items-center">
+    <div className="p-4 md:p-6 space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight">Accounting Center</h1>
           <p className="text-muted mt-1 uppercase text-[10px] font-bold tracking-[0.2em]">P&L, Cash flow & Tax Insights</p>
@@ -125,7 +125,7 @@ export const Reports: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main P&L Chart */}
-        <div className="lg:col-span-2 glass p-8 rounded-[2rem] border border-white/5 space-y-6">
+        <div className="lg:col-span-2 glass p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6 overflow-hidden min-w-0">
           <div className="flex justify-between items-center">
             <h3 className="text-xl font-black tracking-tight flex items-center gap-3">
               <LineChart className="text-primary" />
@@ -154,7 +154,7 @@ export const Reports: React.FC = () => {
         </div>
 
         {/* Expense Categories */}
-        <div className="glass p-8 rounded-[2rem] border border-white/5 space-y-8">
+        <div className="glass p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-8 overflow-hidden min-w-0">
           <h3 className="text-xl font-black tracking-tight flex items-center gap-3">
             <PieChart className="text-primary" />
             Expense Breakdown
