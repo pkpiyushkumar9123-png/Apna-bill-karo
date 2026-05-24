@@ -252,4 +252,12 @@ export class WorkspaceService {
     }
     return null;
   }
+
+  static async getDriveFingerprint(): Promise<string | null> {
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'gdrive') {
+      return await GoogleDriveService.getFingerprint();
+    }
+    return null;
+  }
 }

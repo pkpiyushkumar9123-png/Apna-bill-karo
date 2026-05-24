@@ -18,10 +18,27 @@ export default function App() {
   const init = useStore((state) => state.init);
   const isLoading = useStore((state) => state.isLoading);
   const profile = useStore((state) => state.profile);
+  
+  const workspaceConnected = useStore((state) => state.workspaceConnected);
+  const needsPermission = useStore((state) => state.needsPermission);
+  const gdriveSyncEnabled = useStore((state) => state.gdriveSyncEnabled);
+  const syncCloudData = useStore((state) => state.syncCloudData);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => {
+    const isDriveActive = localStorage.getItem('novabill_workspace_type') === 'gdrive';
+    if (!workspaceConnected || needsPermission || !gdriveSyncEnabled || !isDriveActive) return;
+
+    // Check Google Drive for modifications every 15 seconds
+    const interval = setInterval(() => {
+      syncCloudData(false);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [workspaceConnected, needsPermission, gdriveSyncEnabled, syncCloudData]);
 
   if (isLoading) {
     return (

@@ -16,6 +16,7 @@ import {
   Download,
   Trash2,
   RefreshCw,
+  Cloud,
   Upload,
   Plus,
   X,
@@ -33,7 +34,7 @@ import { cn } from '../lib/utils.ts';
 import { motion } from 'motion/react';
 
 export const Settings: React.FC = () => {
-  const { profile, settings, updateProfile, updateSettings, isSaving, workspaceConnected, workspaceName, requestWorkspacePermission } = useStore();
+  const { profile, settings, updateProfile, updateSettings, isSaving, workspaceConnected, workspaceName, requestWorkspacePermission, gdriveSyncEnabled, isSyncingCloud, lastSyncTime, setGdriveSyncEnabled, syncCloudData } = useStore();
   const [profileData, setProfileData] = useState<BusinessProfile>(profile || {
     id: 'default',
     name: '',
@@ -572,6 +573,90 @@ export const Settings: React.FC = () => {
                </div>
             </div>
           </section>
+
+          {/* Cloud Sync Protocol */}
+          {localStorage.getItem('novabill_workspace_type') === 'gdrive' && (
+            <section className="space-y-10 border-t border-white/5 pt-10 animate-in fade-in duration-300">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-inner">
+                  <Cloud size={28} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black italic uppercase tracking-tighter">Cloud Sync Protocol</h2>
+                  <p className="text-[10px] text-muted font-bold uppercase tracking-[0.2em]">Real-time Google Drive Cloud Synchronization</p>
+                </div>
+              </div>
+
+              <div className="glass-card !p-10 lg:!p-16 rounded-[48px] border-white/5 shadow-2xl space-y-10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px]" />
+                
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 pb-10 border-b border-white/5 relative z-10">
+                  <div className="space-y-2">
+                    <p className="text-lg font-black italic tracking-tight">Active Real-Time Syncing</p>
+                    <p className="text-xs text-muted/60 leading-relaxed max-w-sm">
+                      NovaBill listens for modifications on Google Drive and keeps your invoices, customers, products, and expenses fully synced in real-time across devices completely peer-to-peer.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">{gdriveSyncEnabled ? 'ACTIVE PROTOCOL' : 'PAUSED'}</span>
+                    <button 
+                      onClick={() => setGdriveSyncEnabled(!gdriveSyncEnabled)}
+                      className={cn(
+                        "w-16 h-8 rounded-full transition-all relative p-1 cursor-pointer",
+                        gdriveSyncEnabled ? "bg-primary" : "bg-white/10"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-6 h-6 rounded-full bg-white shadow-md transition-all",
+                        gdriveSyncEnabled ? "translate-x-8" : "translate-x-0"
+                      )} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-muted/60 block">Workspace Drive Metadata</span>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-muted/60 font-bold uppercase tracking-wider text-[10px]">Folder Name</span>
+                        <span className="font-mono font-bold">NovaBill Workspace</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-muted/60 font-bold uppercase tracking-wider text-[10px]">Sync Status</span>
+                        <span className={`${isSyncingCloud ? 'text-primary' : 'text-green-500'} font-bold`}>
+                          {isSyncingCloud ? 'Synchronizing now...' : 'Cohesive & Connected'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-muted/60 font-bold uppercase tracking-wider text-[10px]">Last Sync Check</span>
+                        <span className="font-bold">
+                          {lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Not synced yet'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col justify-end space-y-4">
+                    <button
+                      onClick={() => syncCloudData(true)}
+                      disabled={isSyncingCloud}
+                      className={cn(
+                        "py-5 px-8 rounded-2xl w-full text-center text-xs font-black uppercase tracking-widest transition-all text-white border flex items-center justify-center gap-3",
+                        isSyncingCloud ? "bg-white/5 border-white/5 text-muted cursor-not-allowed" : "bg-primary hover:bg-primary/95 border-transparent shadow-lg shadow-primary/25 active:scale-95 cursor-pointer"
+                      )}
+                    >
+                      <RefreshCw size={16} className={isSyncingCloud ? 'animate-spin' : ''} />
+                      {isSyncingCloud ? 'Synchronizing Live Records...' : 'Synchronize Drive Now'}
+                    </button>
+                    <p className="text-[10px] text-muted/40 font-bold uppercase tracking-[0.15em] text-center">
+                      Forces database reconciliation with cloud Google spreadsheets instantly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Appearance Section */}
           <section className="space-y-10">

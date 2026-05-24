@@ -21,11 +21,13 @@ import {
   FolderSync,
   ShoppingCart,
   Receipt,
-  Wallet
+  Wallet,
+  RefreshCw
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
 import { WorkspaceGuardian, SaveIndicator } from './WorkspaceGuardian';
+import { GoogleDriveSyncIndicator } from './GoogleDriveSyncIndicator';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,7 +35,29 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const profile = useStore((state) => state.profile);
-  const { workspaceName, workspaceConnected, disconnectWorkspace } = useStore();
+  const { 
+    workspaceName, 
+    workspaceConnected, 
+    disconnectWorkspace,
+    gdriveSyncEnabled,
+    setGdriveSyncEnabled,
+    syncCloudData,
+    isSyncingCloud,
+    lastSyncTime
+  } = useStore();
+
+  const isDrive = localStorage.getItem('novabill_workspace_type') === 'gdrive';
+
+  React.useEffect(() => {
+    if (!workspaceConnected || !isDrive || !gdriveSyncEnabled) return;
+
+    // Background cloud change detection loop (every 12 seconds)
+    const interval = setInterval(() => {
+      syncCloudData();
+    }, 12000);
+
+    return () => clearInterval(interval);
+  }, [workspaceConnected, isDrive, gdriveSyncEnabled, syncCloudData]);
   const [showCommandPalette, setShowCommandPalette] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -157,16 +181,46 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <p className="text-xs font-bold truncate">{workspaceName}</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[8px] font-bold text-muted uppercase tracking-[0.2em] pt-2 border-t border-white/5">
-                <span className="flex items-center gap-1">
-                  <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                  Live Sync
-                </span>
-                <span className="flex items-center gap-1">
-                  <FolderSync size={10} />
-                  Excel DB
-                </span>
-              </div>
+              {isDrive ? (
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-muted">
+                    <span className="flex items-center gap-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${gdriveSyncEnabled ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`} />
+                      Cloud Sync {gdriveSyncEnabled ? 'Active' : 'Paused'}
+                    </span>
+                    <button
+                      onClick={() => setGdriveSyncEnabled(!gdriveSyncEnabled)}
+                      className="text-[10px] text-primary hover:text-primary/80 underline font-medium cursor-pointer"
+                    >
+                      {gdriveSyncEnabled ? 'Pause' : 'Resume'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
+                    <span className="text-[9px] text-muted-foreground truncate flex-1 leading-none self-center">
+                      {lastSyncTime ? `Synced: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'Not synced'}
+                    </span>
+                    <button
+                      onClick={() => syncCloudData(true)}
+                      disabled={isSyncingCloud}
+                      className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-white/10 active:bg-white/15 rounded text-[10px] font-bold text-white transition-all cursor-pointer select-none disabled:opacity-50"
+                    >
+                      <RefreshCw size={10} className={`${isSyncingCloud ? 'animate-spin text-primary' : ''}`} />
+                      Sync
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-[8px] font-bold text-muted uppercase tracking-[0.2em] pt-2 border-t border-white/5">
+                  <span className="flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                    Live Sync
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FolderSync size={10} />
+                    Excel DB
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -218,6 +272,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            <GoogleDriveSyncIndicator />
             <SaveIndicator />
             <div className="h-6 w-[1px] bg-white/10 mx-1 md:mx-2" />
             <button className="p-2.5 rounded-full hover:bg-white/5 text-muted transition-all relative">

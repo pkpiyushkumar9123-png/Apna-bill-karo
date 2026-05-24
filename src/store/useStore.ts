@@ -18,12 +18,22 @@ interface AppState {
   workspaceName: string | null;
   needsPermission: boolean;
 
+  // Google Drive Status/Sync State
+  gdriveSyncEnabled: boolean;
+  isSyncingCloud: boolean;
+  lastSyncFingerprint: string | null;
+  lastSyncTime: number | null;
+  lastSyncResult: 'idle' | 'syncing' | 'success' | 'failed';
+
   // Actions
   init: () => Promise<void>;
   connectWorkspace: () => Promise<void>;
   connectDriveWorkspace: () => Promise<void>;
   requestWorkspacePermission: () => Promise<void>;
   disconnectWorkspace: () => void;
+  setGdriveSyncEnabled: (enabled: boolean) => void;
+  syncCloudData: (force?: boolean) => Promise<void>;
+  postSync: () => Promise<void>;
   
   // Invoice Actions
   addInvoice: (invoice: Invoice) => Promise<void>;
@@ -71,6 +81,11 @@ export const useStore = create<AppState>((set, get) => ({
   workspaceConnected: false,
   workspaceName: null,
   needsPermission: false,
+  gdriveSyncEnabled: localStorage.getItem('novabill_gdrive_sync_enabled') !== 'false',
+  isSyncingCloud: false,
+  lastSyncFingerprint: null,
+  lastSyncTime: null,
+  lastSyncResult: 'idle',
 
   init: async () => {
     set({ isLoading: true });
@@ -93,13 +108,22 @@ export const useStore = create<AppState>((set, get) => ({
       let settings: (AppSettings & { profile?: BusinessProfile }) | null = null;
 
       if (get().workspaceConnected && !get().needsPermission) {
-        [invoices, customers, products, expenses, settings] = await Promise.all([
+        const [invRes, custRes, prodRes, expRes, setRes, fp] = await Promise.all([
           WorkspaceService.loadData<Invoice>('invoices'),
           WorkspaceService.loadData<Customer>('customers'),
           WorkspaceService.loadData<Product>('products'),
           WorkspaceService.loadData<Expense>('expenses'),
           WorkspaceService.loadSettings(),
+          WorkspaceService.getDriveFingerprint()
         ]);
+        invoices = invRes;
+        customers = custRes;
+        products = prodRes;
+        expenses = expRes;
+        settings = setRes;
+        if (fp) {
+          set({ lastSyncFingerprint: fp, lastSyncTime: Date.now() });
+        }
       } else {
         [invoices, customers, products, expenses, settings] = await Promise.all([
           dbService.getAll<Invoice>('invoices'),
@@ -188,6 +212,90 @@ export const useStore = create<AppState>((set, get) => ({
     set({ workspaceConnected: false, workspaceName: null, needsPermission: false });
   },
 
+  setGdriveSyncEnabled: (enabled: boolean) => {
+    localStorage.setItem('novabill_gdrive_sync_enabled', String(enabled));
+    set({ gdriveSyncEnabled: enabled });
+  },
+
+  syncCloudData: async (force = false) => {
+    const type = localStorage.getItem('novabill_workspace_type');
+    if (type !== 'gdrive' || get().needsPermission || !get().workspaceConnected) return;
+
+    // Fetch the fingerprint
+    const currentFingerprint = await WorkspaceService.getDriveFingerprint();
+    if (!currentFingerprint) return;
+
+    // Check if anything changed
+    if (!force && get().lastSyncFingerprint === currentFingerprint) {
+      return;
+    }
+
+    set({ isSyncingCloud: true, lastSyncResult: 'syncing' });
+    try {
+      // Clear local IndexedDB tables to prevent duplicate / zombie records
+      await Promise.all([
+        dbService.clear('invoices'),
+        dbService.clear('customers'),
+        dbService.clear('products'),
+        dbService.clear('expenses')
+      ]);
+
+      const [invoices, customers, products, expenses, settings] = await Promise.all([
+        WorkspaceService.loadData<Invoice>('invoices'),
+        WorkspaceService.loadData<Customer>('customers'),
+        WorkspaceService.loadData<Product>('products'),
+        WorkspaceService.loadData<Expense>('expenses'),
+        WorkspaceService.loadSettings(),
+      ]);
+
+      // Cache records into local DB
+      for (const i of invoices) await dbService.put('invoices', i);
+      for (const c of customers) await dbService.put('customers', c);
+      for (const p of products) await dbService.put('products', p);
+      for (const e of expenses) await dbService.put('expenses', e);
+      if (settings?.profile) {
+        await dbService.put('profiles', settings.profile);
+      }
+
+      const profileFromDb = (await dbService.getAll<BusinessProfile>('profiles'))[0];
+      const profile = settings?.profile || profileFromDb || get().profile;
+
+      set({
+        invoices,
+        customers,
+        products,
+        expenses,
+        profile,
+        settings: settings ? { ...get().settings, theme: settings.theme || get().settings.theme } : get().settings,
+        lastSyncFingerprint: currentFingerprint,
+        lastSyncTime: Date.now(),
+        lastSyncResult: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to auto-sync Google Drive cloud:', err);
+      set({ lastSyncResult: 'failed' });
+    } finally {
+      // Reset result after a short delay
+      setTimeout(() => {
+        set({ lastSyncResult: 'idle' });
+      }, 3000);
+      set({ isSyncingCloud: false });
+    }
+  },
+
+  postSync: async () => {
+    if (get().workspaceConnected) {
+      try {
+        const fp = await WorkspaceService.getDriveFingerprint();
+        if (fp) {
+          set({ lastSyncFingerprint: fp, lastSyncTime: Date.now() });
+        }
+      } catch (err) {
+        console.error('Failed to postSync fingerprint update:', err);
+      }
+    }
+  },
+
   addInvoice: async (invoice) => {
     set({ isSaving: true });
     
@@ -226,6 +334,7 @@ export const useStore = create<AppState>((set, get) => ({
         WorkspaceService.syncData('invoices', newInvoices),
         WorkspaceService.syncData('products', currentProducts)
       ]);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -291,6 +400,7 @@ export const useStore = create<AppState>((set, get) => ({
         WorkspaceService.syncData('invoices', newInvoices),
         WorkspaceService.syncData('products', products)
       ]);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -333,6 +443,7 @@ export const useStore = create<AppState>((set, get) => ({
         WorkspaceService.syncData('invoices', newInvoices),
         WorkspaceService.syncData('products', products)
       ]);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -344,6 +455,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('customers', customer);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('customers', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -355,6 +467,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('customers', customer);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('customers', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -366,6 +479,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.delete('customers', id);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('customers', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -377,6 +491,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('products', product);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('products', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -388,6 +503,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('products', product);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('products', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -399,6 +515,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.delete('products', id);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('products', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -410,6 +527,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('expenses', expense);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('expenses', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -421,6 +539,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('expenses', expense);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('expenses', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -432,6 +551,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.delete('expenses', id);
     if (get().workspaceConnected) {
       await WorkspaceService.syncData('expenses', newItems);
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -442,6 +562,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('profiles', profile);
     if (get().workspaceConnected) {
       await WorkspaceService.saveSettings({ ...get().settings, profile });
+      await get().postSync();
     }
     set({ isSaving: false });
   },
@@ -452,6 +573,7 @@ export const useStore = create<AppState>((set, get) => ({
     await dbService.put('settings', { ...updated, id: 'main' });
     if (get().workspaceConnected) {
       await WorkspaceService.saveSettings(updated);
+      await get().postSync();
     }
     set({ isSaving: false });
   },

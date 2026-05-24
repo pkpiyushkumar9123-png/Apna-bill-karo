@@ -55,4 +55,8 @@ export const dbService = {
     const db = await initDB();
     await db.delete(storeName, id);
   },
+  async clear(storeName: string): Promise<void> {
+    const db = await initDB();
+    await db.clear(storeName);
+  },
 };

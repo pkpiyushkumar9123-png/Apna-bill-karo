@@ -209,6 +209,32 @@ export const writeDriveFile = async (fileName: string, content: ArrayBuffer | st
   }
 };
 
+// Gets a fingerprint of the workspace files names & modified timestamp to detect remote changes
+export const getFolderModifiedFingerprint = async (): Promise<string | null> => {
+  if (!cachedAccessToken) return null;
+  try {
+    const folderId = await getOrCreateWorkspaceFolder(cachedAccessToken);
+    const query = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(name,modifiedTime)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${cachedAccessToken}` }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.files || data.files.length === 0) return '';
+    
+    return data.files
+      .slice()
+      .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
+      .map((f: any) => `${f.name}:${f.modifiedTime}`)
+      .join('|');
+  } catch (e) {
+    console.error('Failed to get Google Drive folder fingerprint', e);
+    return null;
+  }
+};
+
 export class GoogleDriveService {
   static isDriveActive(): boolean {
     return localStorage.getItem('novabill_workspace_type') === 'gdrive';
@@ -220,5 +246,9 @@ export class GoogleDriveService {
   
   static getCachedUserEmail(): string | null {
     return auth.currentUser?.email || null;
+  }
+
+  static async getFingerprint(): Promise<string | null> {
+    return await getFolderModifiedFingerprint();
   }
 }
