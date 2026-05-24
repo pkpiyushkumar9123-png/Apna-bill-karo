@@ -157,6 +157,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <NavItem to="/customers" icon={<Users size={20} />} label="Customers" collapsed={isCollapsed} />
           <NavItem to="/products" icon={<Package size={20} />} label="Inventory" collapsed={isCollapsed} />
           <NavItem to="/reports" icon={<BarChart3 size={20} />} label="Accounting" collapsed={isCollapsed} />
+          <NavItem to="/workspace-sync" icon={<FolderSync size={20} />} label="Workspace Business Live Sync Excel DB" collapsed={isCollapsed} />
           <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" collapsed={isCollapsed} />
         </nav>
 

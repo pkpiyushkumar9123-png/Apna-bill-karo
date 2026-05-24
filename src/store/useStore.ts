@@ -16,6 +16,7 @@ interface AppState {
   // Workspace State
   workspaceConnected: boolean;
   workspaceName: string | null;
+  workspaceError: string | null;
   needsPermission: boolean;
 
   // Google Drive Status/Sync State
@@ -80,6 +81,7 @@ export const useStore = create<AppState>((set, get) => ({
   isSaving: false,
   workspaceConnected: false,
   workspaceName: null,
+  workspaceError: null,
   needsPermission: false,
   gdriveSyncEnabled: localStorage.getItem('novabill_gdrive_sync_enabled') !== 'false',
   isSyncingCloud: false,
@@ -180,36 +182,53 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   connectWorkspace: async () => {
+    set({ workspaceError: null });
     try {
       const name = await WorkspaceService.connect();
-      set({ workspaceConnected: true, workspaceName: name });
+      set({ workspaceConnected: true, workspaceName: name, workspaceError: null });
       await get().init(); 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Workspace connection failed', err);
+      set({ workspaceError: err.message || 'Workspace connection failed' });
     }
   },
 
   connectDriveWorkspace: async () => {
+    set({ workspaceError: null });
     try {
       const name = await WorkspaceService.connectDrive();
-      set({ workspaceConnected: true, workspaceName: name, needsPermission: false });
+      set({ workspaceConnected: true, workspaceName: name, needsPermission: false, workspaceError: null });
       await get().init(); 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google Drive workspace connection failed', err);
+      let userFriendlyMsg = err.message || 'Google Drive connection failed';
+      if (userFriendlyMsg.includes('auth/popup-closed-by-user')) {
+        userFriendlyMsg = 'The authentication popup was closed. Please follow these steps to proceed:\n1. Enable popups and third-party cookies in your browser settings.\n2. Click "Open in New Tab" in the top right window to bypass iframe restriction completely.';
+      } else if (userFriendlyMsg.includes('auth/cancelled-popup-request')) {
+        userFriendlyMsg = 'The popup sign-in request was cancelled. Please make sure that popups are not blocked and retry.';
+      }
+      set({ workspaceError: userFriendlyMsg });
     }
   },
 
   requestWorkspacePermission: async () => {
-    const granted = await WorkspaceService.requestPermission();
-    if (granted) {
-      set({ needsPermission: false, workspaceConnected: true });
-      await get().init();
+    set({ workspaceError: null });
+    try {
+      const granted = await WorkspaceService.requestPermission();
+      if (granted) {
+        set({ needsPermission: false, workspaceConnected: true, workspaceError: null });
+        await get().init();
+      } else {
+        set({ workspaceError: 'Permission was not granted to the workspace.' });
+      }
+    } catch (err: any) {
+      set({ workspaceError: err.message || 'Permission request failed' });
     }
   },
 
   disconnectWorkspace: () => {
     WorkspaceService.disconnect();
-    set({ workspaceConnected: false, workspaceName: null, needsPermission: false });
+    set({ workspaceConnected: false, workspaceName: null, needsPermission: false, workspaceError: null });
   },
 
   setGdriveSyncEnabled: (enabled: boolean) => {

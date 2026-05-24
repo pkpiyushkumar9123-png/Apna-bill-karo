@@ -13,6 +13,7 @@ import { Expenses } from './pages/Expenses.tsx';
 import { Reports } from './pages/Reports.tsx';
 import { Settings } from './pages/Settings.tsx';
 import { Templates } from './pages/Templates.tsx';
+import { WorkspaceSync } from './pages/WorkspaceSync.tsx';
 
 export default function App() {
   const init = useStore((state) => state.init);
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/reports" element={<Layout><Reports /></Layout>} />
         <Route path="/templates" element={<Layout><Templates /></Layout>} />
         <Route path="/settings" element={<Layout><Settings /></Layout>} />
+        <Route path="/workspace-sync" element={<Layout><WorkspaceSync /></Layout>} />
         
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

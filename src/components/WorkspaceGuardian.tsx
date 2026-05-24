@@ -20,6 +20,7 @@ export const WorkspaceGuardian: React.FC = () => {
   const { 
     workspaceConnected, 
     workspaceName, 
+    workspaceError,
     needsPermission, 
     connectWorkspace, 
     connectDriveWorkspace,
@@ -60,6 +61,30 @@ export const WorkspaceGuardian: React.FC = () => {
                   NovaBill keeps your operations completely portable. Select your preferred storage location below.
                 </p>
               </div>
+
+              {workspaceError && (
+                <div className="flex flex-col gap-3 p-5 rounded-2xl bg-red-500/10 border border-red-500/20 text-left">
+                  <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider">
+                    <AlertCircle size={14} />
+                    <span>Connection Attempt Delayed</span>
+                  </div>
+                  <p className="text-xs text-red-100/85 leading-relaxed whitespace-pre-line">
+                    {workspaceError}
+                  </p>
+                  
+                  <div className="flex items-center justify-end pt-2 border-t border-white/5">
+                    <a 
+                      href={window.location.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 active:scale-95 text-[10px] text-white font-black uppercase tracking-widest rounded-xl transition-all"
+                    >
+                      <span>Authorize In New Tab</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                 {/* Option 1: Google Drive (Allows Multi-User Collaboration) */}
@@ -151,9 +176,34 @@ export const WorkspaceGuardian: React.FC = () => {
                 Reconnect token is required to secure your storage folder for <strong>{workspaceName}</strong>.
               </p>
             </div>
+
+            {workspaceError && (
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-left text-xs text-red-100/80 space-y-3">
+                <p className="font-bold flex items-center gap-1.5 text-red-500">
+                  <AlertCircle size={12} /> Reauthorization Interrupted
+                </p>
+                <p className="text-[11px] leading-relaxed whitespace-pre-line">
+                  {workspaceError}
+                </p>
+                {isIframe && (
+                  <div className="flex justify-end border-t border-white/5 pt-2">
+                    <a 
+                      href={window.location.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-[10px] text-white font-black uppercase tracking-widest rounded-lg transition-all"
+                    >
+                      <span>Open in New Tab</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button 
               onClick={requestWorkspacePermission}
-              className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2"
+              className="w-full bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-wider py-4 rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <CheckCircle2 size={20} />
               Reauthorize Workspace Connection

@@ -117,7 +117,13 @@ export const Settings: React.FC = () => {
       'FINANCIAL_ENTITY': profileData.bankName || 'N/A',
       'SECURE_ACCOUNT': profileData.bankAccount || 'N/A',
       'TRANSIT_CODE': profileData.ifscCode || 'N/A',
-      'UPI_ID': profileData.upiId || 'N/A'
+      'UPI_ID': profileData.upiId || 'N/A',
+      'ACCOUNT_HOLDER': profileData.holderName || 'N/A',
+      'SWIFT_BIC': profileData.swiftCode || 'N/A',
+      'IBAN': profileData.iban || 'N/A',
+      'ROUTING_NUMBER': profileData.routingNumber || 'N/A',
+      'PAYPAL_LINK': profileData.paypalId || 'N/A',
+      'BANK_ADDRESS': profileData.bankAddress || 'N/A'
     }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'CORE_PROFILE');
