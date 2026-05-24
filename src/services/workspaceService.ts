@@ -1,8 +1,17 @@
 import { get, set, del } from 'idb-keyval';
 import { ExcelService } from './excelService';
 import { Invoice, Customer, Product, BusinessProfile, AppSettings } from '../types';
+import { 
+  googleSignIn, 
+  logoutDrive, 
+  readDriveFile, 
+  writeDriveFile, 
+  GoogleDriveService 
+} from './googleDriveService';
 
 const STORAGE_KEY = 'novabill_workspace_handle';
+const TYPE_KEY = 'novabill_workspace_type';
+const EMAIL_KEY = 'novabill_gdrive_email';
 
 export interface WorkspaceState {
   isConnected: boolean;
@@ -15,7 +24,7 @@ export class WorkspaceService {
   private static handle: FileSystemDirectoryHandle | null = null;
 
   /**
-   * Request user to select a directory
+   * Request user to select a directory (local folder)
    */
   static async connect(): Promise<string> {
     try {
@@ -24,6 +33,7 @@ export class WorkspaceService {
       });
       this.handle = handle;
       await set(STORAGE_KEY, handle);
+      localStorage.setItem(TYPE_KEY, 'local');
       return handle.name;
     } catch (err: any) {
       if (err.name === 'AbortError') throw err;
@@ -32,9 +42,39 @@ export class WorkspaceService {
   }
 
   /**
-   * Try to restore handle from IndexedDB
+   * Connect and authenticate Google Drive workspace
+   */
+  static async connectDrive(): Promise<string> {
+    try {
+      const result = await googleSignIn();
+      if (!result) throw new Error('No sign-in result');
+      
+      localStorage.setItem(TYPE_KEY, 'gdrive');
+      if (result.user.email) {
+        localStorage.setItem(EMAIL_KEY, result.user.email);
+      }
+      return result.user.email || 'Google Drive Sync Folder';
+    } catch (err: any) {
+      throw new Error('Failed to connect to Google Drive: ' + err.message);
+    }
+  }
+
+  /**
+   * Try to restore handle from IndexedDB or Google Drive session
    */
   static async restore(): Promise<{ name: string; needsPermission: boolean } | null> {
+    const type = localStorage.getItem(TYPE_KEY);
+    
+    if (type === 'gdrive') {
+      const email = localStorage.getItem(EMAIL_KEY) || 'Google Drive Workspace';
+      const hasToken = GoogleDriveService.hasToken();
+      return {
+        name: `Google Drive (${email})`,
+        needsPermission: !hasToken
+      };
+    }
+    
+    // Otherwise fallback to local
     const savedHandle = await get(STORAGE_KEY);
     if (savedHandle) {
       try {
@@ -54,9 +94,19 @@ export class WorkspaceService {
   }
 
   /**
-   * Request permission for an existing handle
+   * Request permission for an existing handle (Local) or trigger Google popup (Drive)
    */
   static async requestPermission(): Promise<boolean> {
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'gdrive') {
+      try {
+        const result = await googleSignIn();
+        return !!result;
+      } catch {
+        return false;
+      }
+    }
+
     const savedHandle = await get(STORAGE_KEY);
     if (savedHandle) {
       const status = await savedHandle.requestPermission({ mode: 'readwrite' });
@@ -68,15 +118,30 @@ export class WorkspaceService {
     return false;
   }
 
-  static disconnect() {
+  static async disconnect() {
     this.handle = null;
-    del(STORAGE_KEY);
+    await del(STORAGE_KEY);
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'gdrive') {
+      await logoutDrive();
+    }
+    localStorage.removeItem(TYPE_KEY);
+    localStorage.removeItem(EMAIL_KEY);
   }
 
   /**
    * Core persistence methods
    */
   static async saveFile(fileName: string, content: ArrayBuffer | string) {
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'gdrive') {
+      const mime = fileName.endsWith('.xlsx')
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/json; charset=UTF-8';
+      await writeDriveFile(fileName, content, mime);
+      return;
+    }
+
     if (!this.handle) throw new Error('No workspace connected');
     
     try {
@@ -96,6 +161,11 @@ export class WorkspaceService {
   }
 
   static async readFile(fileName: string): Promise<ArrayBuffer | string | null> {
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'gdrive') {
+      return await readDriveFile(fileName);
+    }
+
     if (!this.handle) return null;
     try {
       const fileHandle = await this.handle.getFileHandle(fileName, { create: false });

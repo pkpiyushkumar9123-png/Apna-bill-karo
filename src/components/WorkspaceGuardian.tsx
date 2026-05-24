@@ -10,7 +10,9 @@ import {
   Settings,
   HardDrive,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Cloud,
+  ArrowRight
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -20,6 +22,7 @@ export const WorkspaceGuardian: React.FC = () => {
     workspaceName, 
     needsPermission, 
     connectWorkspace, 
+    connectDriveWorkspace,
     requestWorkspacePermission,
     isLoading 
   } = useStore();
@@ -35,85 +38,93 @@ export const WorkspaceGuardian: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-background/95 backdrop-blur-md overflow-y-auto"
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,68,68,0.15),transparent_70%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,68,68,0.1),transparent_70%)]" />
           
           <motion.div 
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            className="relative w-full max-w-lg glass border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
+            className="relative w-full max-w-2xl glass border border-white/10 rounded-[32px] overflow-hidden shadow-2xl my-8"
           >
             <div className="p-8 space-y-8 text-center">
-              <div className="mx-auto w-20 h-20 rounded-[24px] bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-[0_0_40px_rgba(255,68,68,0.2)]">
-                <HardDrive size={40} />
+              <div className="mx-auto w-16 h-16 rounded-[20px] bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-[0_0_40px_rgba(255,68,68,0.15)]">
+                <HardDrive size={32} />
               </div>
               
               <div className="space-y-3">
                 <h1 className="text-3xl font-black tracking-tight">
-                  {isIframe ? 'Open in New Tab' : 'Setup Workspace'}
+                  Setup Workspace Shared Storage
                 </h1>
-                <p className="text-muted text-sm max-w-xs mx-auto">
-                  {isIframe 
-                    ? 'To access your local Excel files, please open this app in a new window using the button in the top right corner.' 
-                    : 'NovaBill stores all your data directly on your computer in Excel files for maximum privacy and portability.'}
+                <p className="text-muted text-sm max-w-md mx-auto">
+                  NovaBill keeps your operations completely portable. Select your preferred storage location below.
                 </p>
               </div>
 
-              {isIframe ? (
-                <div className="p-6 glass border border-primary/20 rounded-3xl bg-primary/5 space-y-4">
-                  <div className="flex items-center justify-center gap-3 text-primary">
-                    <ExternalLink size={24} />
-                    <span className="font-bold">Browser Restriction</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                {/* Option 1: Google Drive (Allows Multi-User Collaboration) */}
+                <div className="flex flex-col justify-space-between p-6 glass border border-primary/20 bg-primary/[0.02] rounded-3xl space-y-6 hover:border-primary/40 transition-all">
+                  <div className="space-y-3 flex-1">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Cloud size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-base">Google Drive Cloud Workspace</h3>
+                      <p className="text-[10px] text-primary uppercase tracking-widest font-black mt-0.5">Recommended for teams</p>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Syncs automatically to a secure spreadsheet folder in Google Drive. 
+                      <strong className="text-white/90"> Share this folder on Google Drive</strong> with others to collaborate together in real-time, completely serverless!
+                    </p>
                   </div>
-                  <p className="text-xs text-muted leading-relaxed">
-                    Local file system access is protected by the browser and cannot be initiated inside a preview frame. 
-                    Click the <strong>"Open in New Tab"</strong> icon on the top right of this preview.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4">
                   <button 
-                    onClick={connectWorkspace}
-                    className="group flex items-center justify-between p-6 glass border border-white/5 rounded-3xl hover:bg-white/5 hover:border-primary/30 transition-all text-left"
+                    onClick={connectDriveWorkspace}
+                    className="w-full py-3.5 px-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/25 cursor-pointer"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <FolderPlus size={24} />
-                      </div>
-                      <div>
-                        <p className="font-bold">Create Workspace</p>
-                        <p className="text-[10px] text-muted uppercase tracking-widest font-bold">New Folder</p>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-muted group-hover:text-primary">
-                      <CheckCircle2 size={16} />
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={connectWorkspace}
-                    className="group flex items-center justify-between p-6 glass border border-white/5 rounded-3xl hover:bg-white/5 hover:border-white/10 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-muted group-hover:text-white transition-all">
-                        <FolderOpen size={24} />
-                      </div>
-                      <div>
-                        <p className="font-bold">Open Existing Workspace</p>
-                        <p className="text-[10px] text-muted uppercase tracking-widest font-bold">Reconnect Folder</p>
-                      </div>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-muted">
-                      <CheckCircle2 size={16} />
-                    </div>
+                    <span>Connect Google Drive</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
-              )}
 
-              <div className="pt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-muted uppercase tracking-[0.2em]">
+                {/* Option 2: Local File System Directory */}
+                <div className="flex flex-col justify-space-between p-6 glass border border-white/5 rounded-3xl space-y-6 hover:border-white/10 transition-all">
+                  <div className="space-y-3 flex-1">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-muted">
+                      <FolderOpen size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-base">Local Folders Workspace</h3>
+                      <p className="text-[10px] text-muted uppercase tracking-widest font-bold mt-0.5">Secure Offline Only</p>
+                    </div>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Saves spreadsheets directory onto your personal hard drive. Best for ultra-private setups. No cloud files created.
+                    </p>
+                  </div>
+
+                  {isIframe ? (
+                    <div className="p-3 bg-white/5 border border-white/5 rounded-2xl space-y-1">
+                      <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
+                        <ArrowRight size={10} /> Browser Restriction
+                      </p>
+                      <p className="text-[10px] text-muted leading-relaxed">
+                        To connect a local folder, click <strong>"Open in New Tab"</strong> in the top-right corner because of iframe restrictions.
+                      </p>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={connectWorkspace}
+                      className="w-full py-3.5 px-4 bg-white/10 border border-white/10 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-white/15 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Connect Local Folder</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-center gap-2 text-[10px] font-bold text-muted uppercase tracking-[0.2em] border-t border-white/5">
                 <ShieldAlert size={12} />
-                <span>Local Only • No Cloud Uploads</span>
+                <span>Zero Database Backend Required • Portable XLSX Architecture</span>
               </div>
             </div>
           </motion.div>
@@ -136,9 +147,8 @@ export const WorkspaceGuardian: React.FC = () => {
             </div>
             <div className="space-y-2">
               <h2 className="text-xl font-bold">Permission Required</h2>
-              <p className="text-sm text-muted">
-                The browser requires your permission to reconnect to <strong>{workspaceName}</strong>. 
-                This happens after a page refresh for security.
+              <p className="text-sm text-muted animate-pulse">
+                Reconnect token is required to secure your storage folder for <strong>{workspaceName}</strong>.
               </p>
             </div>
             <button 
@@ -146,7 +156,7 @@ export const WorkspaceGuardian: React.FC = () => {
               className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2"
             >
               <CheckCircle2 size={20} />
-              Grant Write Access
+              Reauthorize Workspace Connection
             </button>
           </motion.div>
         </motion.div>

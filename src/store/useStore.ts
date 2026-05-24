@@ -21,6 +21,7 @@ interface AppState {
   // Actions
   init: () => Promise<void>;
   connectWorkspace: () => Promise<void>;
+  connectDriveWorkspace: () => Promise<void>;
   requestWorkspacePermission: () => Promise<void>;
   disconnectWorkspace: () => void;
   
@@ -161,6 +162,16 @@ export const useStore = create<AppState>((set, get) => ({
       await get().init(); 
     } catch (err) {
       console.error('Workspace connection failed', err);
+    }
+  },
+
+  connectDriveWorkspace: async () => {
+    try {
+      const name = await WorkspaceService.connectDrive();
+      set({ workspaceConnected: true, workspaceName: name, needsPermission: false });
+      await get().init(); 
+    } catch (err) {
+      console.error('Google Drive workspace connection failed', err);
     }
   },
 
