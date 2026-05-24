@@ -6,10 +6,24 @@ import {
   onAuthStateChanged, 
   User 
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import defaultFirebaseConfig from '../../firebase-applet-config.json';
+
+// Get active Firebase configuration (default to applet config, but prioritize custom config if supplied)
+let activeConfig = defaultFirebaseConfig;
+try {
+  const customConfigStr = localStorage.getItem('novabill_custom_firebase_config');
+  if (customConfigStr) {
+    const parsed = JSON.parse(customConfigStr);
+    if (parsed && typeof parsed === 'object' && parsed.apiKey) {
+      activeConfig = parsed;
+    }
+  }
+} catch (e) {
+  console.error('Failed to parse custom Firebase configuration', e);
+}
 
 // Initialize Firebase App
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
 export const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();

@@ -52,6 +52,41 @@ export const WorkspaceSync: React.FC = () => {
   const [initSuccess, setInitSuccess] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
+  const [customConfig, setCustomConfig] = useState(() => {
+    return localStorage.getItem('novabill_custom_firebase_config') || '';
+  });
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  const handleSaveCustomConfig = () => {
+    try {
+      if (!customConfig.trim()) {
+        localStorage.removeItem('novabill_custom_firebase_config');
+        alert('Custom configuration cleared! Resetting default credentials...');
+        window.location.reload();
+        return;
+      }
+      
+      const parsed = JSON.parse(customConfig);
+      if (!parsed || typeof parsed !== 'object' || !parsed.apiKey || !parsed.authDomain) {
+        throw new Error('Config JSON must contain at least "apiKey" and "authDomain" parameters.');
+      }
+      
+      localStorage.setItem('novabill_custom_firebase_config', JSON.stringify(parsed, null, 2));
+      alert('Custom Firebase credentials successfully updated! The app will reload now to apply settings.');
+      window.location.reload();
+    } catch (err: any) {
+      setConfigError(err.message || 'Invalid JSON format. Please paste your complete Firebase credentials JSON config.');
+    }
+  };
+
+  const handleResetConfig = () => {
+    if (window.confirm('Reset and use NovaBill\'s default Firebase sandbox credentials?')) {
+      localStorage.removeItem('novabill_custom_firebase_config');
+      setCustomConfig('');
+      window.location.reload();
+    }
+  };
+
   const isDrive = localStorage.getItem('novabill_workspace_type') === 'gdrive';
   const isIframe = window.self !== window.top;
 
@@ -245,14 +280,50 @@ export const WorkspaceSync: React.FC = () => {
             )}
 
             {workspaceError && (
-              <div className="p-5 rounded-2xl bg-red-500/10 border border-red-500/20 space-y-2">
+              <div className="p-6 rounded-3xl bg-red-500/10 border border-red-500/20 space-y-4">
                 <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider">
                   <AlertCircle size={14} />
-                  <span>Connection Interrupted</span>
+                  <span>{workspaceError.includes('unauthorized-domain') ? 'Domain Authorization Required' : 'Connection Interrupted'}</span>
                 </div>
-                <p className="text-xs text-red-100/75 leading-relaxed whitespace-pre-line">
-                  {workspaceError}
-                </p>
+                
+                {workspaceError.includes('unauthorized-domain') ? (
+                  <div className="space-y-4">
+                    <p className="text-xs text-red-100/75 leading-relaxed">
+                      Your application is hosted at <strong className="text-white font-bold">{window.location.origin}</strong> (domain: <strong className="text-white font-bold">{window.location.hostname}</strong>), which is not listed as an **Authorized Domain** in your Firebase authentication options under project ID (<code className="text-[11px] font-mono text-primary bg-primary/5 px-1 py-0.5 rounded">unique-ensign-g9z5m</code>).
+                    </p>
+                    <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3 text-xs text-muted leading-relaxed">
+                      <p className="font-bold text-white uppercase tracking-wider text-[10px] flex items-center gap-1">
+                        <Zap size={10} className="text-primary fill-primary" /> How to authorize in 30 seconds:
+                      </p>
+                      <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted">
+                        <li>
+                          Open your Firebase Console Auth Settings:
+                          <a 
+                            href="https://console.firebase.google.com/project/unique-ensign-g9z5m/authentication/settings" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 hover:underline ml-1.5 font-black uppercase tracking-wider text-[9px] bg-primary/10 px-2 py-0.5 rounded"
+                          >
+                            <span>Open Auth Console</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        </li>
+                        <li>Scroll to the <strong className="text-white font-medium">Authorized domains</strong> panel.</li>
+                        <li>Click the <strong className="text-white font-medium">Add domain</strong> button.</li>
+                        <li>Enter exactly: <span className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[10px] select-all font-bold">{window.location.hostname}</span></li>
+                        <li>Click the <strong className="text-white font-medium">Add</strong> button to confirm.</li>
+                      </ol>
+                    </div>
+                    <p className="text-[11px] text-muted">
+                      Once added, come back here and click <strong className="text-white font-medium">Connect GDrive</strong> again!
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-100/75 leading-relaxed whitespace-pre-line">
+                    {workspaceError}
+                  </p>
+                )}
+                
                 {isIframe && (
                   <div className="flex justify-end pt-2 border-t border-white/5">
                     <a 
@@ -361,6 +432,92 @@ export const WorkspaceSync: React.FC = () => {
                 )}
                 <span>Initialize Empty Templates</span>
               </button>
+            </div>
+          </div>
+
+          {/* Custom Firebase Configuration for Self-Hosting */}
+          <div className="glass-card rounded-[40px] border-white/5 shadow-xl p-8 space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[40px] opacity-10 pointer-events-none" />
+            
+            <div className="border-b border-white/5 pb-4 space-y-1">
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase tracking-widest leading-none">
+                Self-Hosting Support
+              </span>
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <ShieldCheck size={18} className="text-amber-500" /> Custom Firebase Project Settings
+              </h3>
+              <p className="text-[11px] text-muted">
+                Hosting NovaBill on your own custom domain (like Vercel)? Replace the default sandbox keys with your own free Firebase Project credentials to authorize Google login.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl bg-black/40 border border-white/5 space-y-3 text-xs leading-relaxed">
+                <p className="font-bold text-white uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Create your own free Firebase Config:
+                </p>
+                <ol className="list-decimal pl-4 space-y-2 text-[11px] text-muted">
+                  <li>
+                    Create a free project inside the{' '}
+                    <a 
+                      href="https://console.firebase.google.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-1.5 ml-1 font-bold font-black"
+                    >
+                      Firebase Console <ExternalLink size={10} />
+                    </a>.
+                  </li>
+                  <li>
+                    Add a **Web App** (click the <strong className="text-white font-medium">{'</>'}</strong> icon) and copy the <strong className="text-white font-medium">firebaseConfig</strong> JavaScript object.
+                  </li>
+                  <li>
+                    Enable Google Sign-In under <strong className="text-white font-medium">Build &gt; Authentication &gt; Sign-In Method &gt; Add New Provider &gt; Google</strong>.
+                  </li>
+                  <li>
+                    Go to <strong className="text-white font-medium">Settings &gt; Authorized Domains</strong> and add your domain: <span className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono font-bold select-all">{window.location.hostname}</span>.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted block font-sans">Paste Web App Configuration JSON</label>
+                <textarea
+                  value={customConfig}
+                  onChange={(e) => {
+                    setCustomConfig(e.target.value);
+                    setConfigError(null);
+                  }}
+                  placeholder={`{\n  "apiKey": "AIzaSy...",\n  "authDomain": "your-app.firebaseapp.com",\n  "projectId": "your-app-id",\n  "storageBucket": "your-app.appspot.com",\n  "messagingSenderId": "12345678",\n  "appId": "1:1234..."\n}`}
+                  rows={6}
+                  className="w-full bg-black/50 border border-white/5 focus:border-primary/45 rounded-2xl p-4 font-mono text-[11px] text-white placeholder-muted/30 focus:outline-none transition-all resize-none"
+                />
+              </div>
+
+              {configError && (
+                <p className="text-[11px] text-red-500 bg-red-500/5 border border-red-500/10 p-3 rounded-xl leading-relaxed">
+                  {configError}
+                </p>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={handleSaveCustomConfig}
+                  className="flex-1 py-3 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.98]"
+                >
+                  <Check size={14} />
+                  <span>Update Credentials</span>
+                </button>
+                {localStorage.getItem('novabill_custom_firebase_config') && (
+                  <button
+                    onClick={handleResetConfig}
+                    className="px-4 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold uppercase tracking-widest text-[10px] rounded-xl border border-red-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                  >
+                    <Trash2 size={14} />
+                    <span>Reset Default</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

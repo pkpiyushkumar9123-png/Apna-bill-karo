@@ -206,6 +206,8 @@ export const useStore = create<AppState>((set, get) => ({
         userFriendlyMsg = 'The authentication popup was closed. Please follow these steps to proceed:\n1. Enable popups and third-party cookies in your browser settings.\n2. Click "Open in New Tab" in the top right window to bypass iframe restriction completely.';
       } else if (userFriendlyMsg.includes('auth/cancelled-popup-request')) {
         userFriendlyMsg = 'The popup sign-in request was cancelled. Please make sure that popups are not blocked and retry.';
+      } else if (userFriendlyMsg.includes('auth/unauthorized-domain') || userFriendlyMsg.toLowerCase().includes('unauthorized-domain')) {
+        userFriendlyMsg = `Domain Authorization Required (unauthorized-domain):\nYour deployed domain ${window.location.hostname} must be added to the Firebase Console Authorized Domains list.`;
       }
       set({ workspaceError: userFriendlyMsg });
     }
