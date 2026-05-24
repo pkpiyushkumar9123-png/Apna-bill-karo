@@ -19,6 +19,7 @@ export interface BusinessProfile {
   bankName?: string;
   bankAccount?: string;
   ifscCode?: string;
+  upiId?: string;
   signature?: string;
 }
 

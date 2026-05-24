@@ -46,7 +46,8 @@ export const Settings: React.FC = () => {
     taxId: '',
     bankName: '',
     bankAccount: '',
-    ifscCode: ''
+    ifscCode: '',
+    upiId: ''
   });
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -108,7 +109,8 @@ export const Settings: React.FC = () => {
       'CURRENCY_UNIT': profileData.currency || 'USD',
       'FINANCIAL_ENTITY': profileData.bankName || 'N/A',
       'SECURE_ACCOUNT': profileData.bankAccount || 'N/A',
-      'TRANSIT_CODE': profileData.ifscCode || 'N/A'
+      'TRANSIT_CODE': profileData.ifscCode || 'N/A',
+      'UPI_ID': profileData.upiId || 'N/A'
     }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'CORE_PROFILE');
@@ -356,7 +358,7 @@ export const Settings: React.FC = () => {
                          <CreditCard className="text-primary" size={18} />
                          <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Financial Routing Details</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">Entity Name</label>
                           <input 
@@ -385,6 +387,16 @@ export const Settings: React.FC = () => {
                             value={profileData.ifscCode || ''}
                             onChange={handleProfileChange}
                             className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm" 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted/40 pl-2">UPI ID (instant QR code)</label>
+                          <input 
+                            name="upiId"
+                            placeholder="merchant@upi"
+                            value={profileData.upiId || ''}
+                            onChange={handleProfileChange}
+                            className="input-field w-full h-12 bg-white/[0.01] font-mono text-sm text-primary" 
                           />
                         </div>
                       </div>

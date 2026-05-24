@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -71,6 +72,9 @@ export const InvoiceEditor: React.FC = () => {
   const [showNotePresets, setShowNotePresets] = useState(false);
   const [showTermPresets, setShowTermPresets] = useState(false);
   const [stockWarning, setStockWarning] = useState<{ name: string; needed: number; available: number } | null>(null);
+  const [qrUrl, setQrUrl] = useState<string>('');
+  const [qrType, setQrType] = useState<'upi' | 'bank'>('upi');
+  const [zoomQr, setZoomQr] = useState(false);
 
   const getProductAvailability = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -224,6 +228,56 @@ export const InvoiceEditor: React.FC = () => {
       total: isNaN(calculated.total) ? 0 : Math.max(0, calculated.total)
     };
   }, [watchedItems]);
+
+  // Dynamically generate the QR Code when invoice details or payment type changes
+  useEffect(() => {
+    let active = true;
+    const generateQR = async () => {
+      try {
+        let qrText = '';
+        if (qrType === 'upi' && profile?.upiId) {
+          const upiId = profile.upiId;
+          const payeeName = profile.name || 'Merchant';
+          const amt = totals.total.toFixed(2);
+          const note = `Invoice ${watchedNumber || 'Payment'}`;
+          const currency = profile.currency || 'INR';
+          qrText = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amt}&cu=${currency}&tn=${encodeURIComponent(note)}`;
+        } else {
+          const bankName = profile?.bankName || '';
+          const bankAcc = profile?.bankAccount || '';
+          const ifsc = profile?.ifscCode || '';
+          const amt = totals.total.toFixed(2);
+          const payee = profile?.name || '';
+          const identifier = watchedNumber || 'Invoice_Tx';
+
+          if (bankAcc || ifsc) {
+            qrText = `Payee: ${payee}\nBank: ${bankName}\nAccount: ${bankAcc}\nIFS Code: ${ifsc}\nAmount: ${amt}\nRef: ${identifier}`;
+          }
+        }
+
+        if (qrText) {
+          const url = await QRCode.toDataURL(qrText, {
+            margin: 1,
+            width: 256,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          if (active) setQrUrl(url);
+        } else {
+          if (active) setQrUrl('');
+        }
+      } catch (err) {
+        console.error('Failed to generate QR Code:', err);
+      }
+    };
+
+    generateQR();
+    return () => {
+      active = false;
+    };
+  }, [qrType, profile, totals.total, watchedNumber]);
 
   const [isFormSaving, setIsFormSaving] = useState(false);
   const onSubmit = async (data: InvoiceFormData) => {
@@ -417,14 +471,52 @@ export const InvoiceEditor: React.FC = () => {
            </div>
         </div>
 
-        <div className="mt-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 pt-12 border-t border-gray-100 italic text-xs text-gray-400">
-           <div>
-              <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Notes</p>
-              <p className="whitespace-pre-wrap">{watch('notes') || 'No special notes.'}</p>
+        <div className="mt-auto grid grid-cols-1 md:grid-cols-3 gap-8 pt-12 border-t border-gray-100 text-xs text-gray-500">
+           <div className="md:col-span-2 space-y-4">
+              <div>
+                 <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Notes</p>
+                 <p className="whitespace-pre-wrap italic text-gray-500">{watch('notes') || 'No special notes.'}</p>
+              </div>
+              <div>
+                 <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Terms & Conditions</p>
+                 <p className="whitespace-pre-wrap italic text-gray-500">{watch('terms') || 'Payment upon receipt.'}</p>
+              </div>
            </div>
-           <div className="text-right">
-              <p className="font-bold text-gray-600 mb-2 not-italic uppercase tracking-widest">Terms</p>
-              <p className="whitespace-pre-wrap">{watch('terms') || 'Payment upon receipt.'}</p>
+           
+           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center text-center">
+              <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em] mb-2.5">Scan to Pay Instantly</span>
+              {qrUrl ? (
+                 <div 
+                   onClick={() => setZoomQr(true)}
+                   className="relative group/qr bg-white p-2 rounded-xl shadow-sm border border-gray-100 transition-all hover:scale-105 cursor-pointer"
+                 >
+                    <img src={qrUrl} alt="Invoice QR" className="w-24 h-24 object-contain" />
+                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/qr:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                       <span className="text-[8px] bg-white text-black px-1.5 py-0.5 rounded font-black tracking-widest shadow-sm">Zoom</span>
+                    </div>
+                 </div>
+              ) : (
+                 <div className="w-24 h-24 rounded-xl pb-1 bg-white border border-dashed border-gray-200 flex flex-col items-center justify-center p-3 text-center text-gray-400 gap-1">
+                    <QrCode size={18} />
+                    <span className="text-[8px] font-black uppercase tracking-wider leading-tight">No Pay Credentials</span>
+                 </div>
+              )}
+
+              <div className="mt-2.5 w-full">
+                 <p className="text-[8px] font-bold text-gray-800 uppercase tracking-wider">
+                    {profile?.upiId && qrType === 'upi' ? 'UPI Transfer Direct' : 'Bank Remittance'}
+                 </p>
+                 {profile?.upiId && qrType === 'upi' ? (
+                    <p className="text-[8px] font-mono text-gray-500 truncate max-w-[130px] mx-auto mt-0.5 font-bold">{profile.upiId}</p>
+                 ) : (
+                    profile?.bankAccount && (
+                       <div className="text-[7.5px] text-gray-500 font-mono mt-0.5 leading-tight">
+                          <p className="truncate">A/C: {profile.bankAccount}</p>
+                          <p>IFSC: {profile.ifscCode}</p>
+                       </div>
+                    )
+                 )}
+              </div>
            </div>
         </div>
     </div>
@@ -1114,6 +1206,122 @@ export const InvoiceEditor: React.FC = () => {
                 </div>
              </div>
 
+             {/* Dynamic QR Pay Terminal Card */}
+             <div className="glass-card !p-6 lg:!p-8 rounded-[40px] border-white/10 shadow-2xl relative overflow-hidden group/qr-control">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover/qr-control:opacity-100 transition-opacity duration-700" />
+                <div className="relative space-y-6">
+                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                      <div className="flex items-center gap-3">
+                         <QrCode className="text-primary animate-pulse" size={20} style={{ color: watch('accentColor') }} />
+                         <div>
+                            <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">QR Pay Routing</h4>
+                            <p className="text-[8px] text-muted uppercase tracking-widest">Instant client settlement</p>
+                         </div>
+                      </div>
+                      
+                      <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
+                         <button 
+                           type="button"
+                           onClick={() => setQrType('upi')}
+                           className={cn(
+                             "px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                             qrType === 'upi' ? "bg-primary text-white" : "text-muted hover:text-white"
+                           )}
+                           style={{ backgroundColor: qrType === 'upi' ? watch('accentColor') : undefined }}
+                         >
+                            UPI
+                         </button>
+                         <button 
+                           type="button"
+                           onClick={() => setQrType('bank')}
+                           className={cn(
+                             "px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                             qrType === 'bank' ? "bg-primary text-white" : "text-muted hover:text-white"
+                           )}
+                           style={{ backgroundColor: qrType === 'bank' ? watch('accentColor') : undefined }}
+                         >
+                            Bank
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="flex gap-6 items-center">
+                      {qrUrl ? (
+                         <div className="relative group/qr bg-white p-2.5 rounded-2xl shadow-xl transition-transform hover:scale-105 select-none shrink-0 border border-gray-100">
+                            <img src={qrUrl} alt="QR Pay Routing" className="w-20 h-20 object-contain" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const a = document.createElement('a');
+                                a.href = qrUrl;
+                                a.download = `payment-qr-${watchedNumber || 'invoice'}.png`;
+                                a.click();
+                              }}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/qr:opacity-100 transition-all rounded-2xl flex flex-col items-center justify-center text-white gap-1 cursor-pointer"
+                            >
+                               <Download size={14} />
+                               <span className="text-[8px] font-bold uppercase tracking-widest">SAVE PNG</span>
+                            </button>
+                         </div>
+                      ) : (
+                         <div className="w-20 h-20 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] flex flex-col items-center justify-center p-3 text-center text-muted shrink-0">
+                            <Info size={18} className="text-muted/40 animate-pulse mb-1" />
+                            <span className="text-[7px] font-black leading-tight uppercase text-muted/50">Setup Details</span>
+                         </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                         {qrType === 'upi' ? (
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-bold text-white uppercase tracking-wider">UPI Virtual Payment ID</p>
+                               {profile?.upiId ? (
+                                  <>
+                                     <p className="text-xs font-mono text-primary font-bold truncate" style={{ color: watch('accentColor') }}>{profile.upiId}</p>
+                                     <p className="text-[8px] text-muted leading-relaxed uppercase tracking-widest opacity-80 decoration-dotted">Encodes merchant endpoint & totals correctly.</p>
+                                  </>
+                               ) : (
+                                  <>
+                                     <p className="text-[9px] text-orange-400 font-bold uppercase tracking-widest leading-normal">No UPI ID Found</p>
+                                     <button 
+                                       type="button"
+                                       onClick={() => navigate('/settings')}
+                                       className="text-[8px] text-primary hover:underline font-black uppercase tracking-widest block"
+                                       style={{ color: watch('accentColor') }}
+                                     >
+                                        Configure UPI →
+                                     </button>
+                                  </>
+                               )}
+                            </div>
+                         ) : (
+                            <div className="space-y-1">
+                               <p className="text-[10px] font-bold text-white uppercase tracking-wider">Direct Wire Routing</p>
+                               {profile?.bankAccount || profile?.ifscCode ? (
+                                  <div className="text-[8px] text-muted font-mono leading-tight space-y-0.5">
+                                     <p className="text-white font-bold truncate">{profile.bankName || 'Direct'}</p>
+                                     <p className="truncate">ACC: {profile.bankAccount || 'N/A'}</p>
+                                     <p>IFSC: {profile.ifscCode || 'N/A'}</p>
+                                  </div>
+                               ) : (
+                                  <>
+                                     <p className="text-[9px] text-orange-400 font-bold uppercase tracking-widest leading-normal">Bank account empty</p>
+                                     <button 
+                                       type="button"
+                                       onClick={() => navigate('/settings')}
+                                       className="text-[8px] text-primary hover:underline font-black uppercase tracking-widest block"
+                                       style={{ color: watch('accentColor') }}
+                                     >
+                                        Setup Account →
+                                     </button>
+                                  </>
+                               )}
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                </div>
+             </div>
+
              <div className="lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:rounded-[64px] shadow-[0_60px_150px_rgba(0,0,0,0.9)] custom-scrollbar lg:border lg:border-white/5 bg-white scale-[1.001]">
                 {renderPreviewContent()}
              </div>
@@ -1133,6 +1341,91 @@ export const InvoiceEditor: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Zoomed QR Modal Terminal */}
+      <AnimatePresence>
+        {zoomQr && qrUrl && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl"
+            onClick={() => setZoomQr(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-zinc-900 border border-white/10 p-8 md:p-12 rounded-[48px] max-w-md w-full text-center space-y-8 relative shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 blur-[80px]" />
+              
+              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="p-2 bg-primary/10 rounded-xl text-primary" style={{ color: watch('accentColor') }}>
+                    <QrCode size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-white tracking-widest">Gateway Matrix</h3>
+                    <p className="text-[9px] text-muted uppercase tracking-widest">{profile?.upiId && qrType === 'upi' ? 'UPI Live Settlement' : 'Direct Electronic Remittance'}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setZoomQr(false)} 
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-muted/60 hover:text-white transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="bg-white p-6 rounded-[32px] inline-block shadow-2xl border border-white/10 transition-transform hover:scale-102">
+                <img src={qrUrl} alt="Zoomed payment QR" className="w-64 h-64 object-contain mx-auto" />
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <span className="text-[9px] font-black tracking-widest text-[#10B981] uppercase block mb-1">● Net Payable Value</span>
+                  <span className="text-3xl font-black font-mono tracking-tighter text-white" style={{ color: watch('accentColor') }}>
+                    {profile?.currency || 'USD'} {totals.total.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-muted/80">
+                  {qrType === 'upi' && profile?.upiId ? (
+                    <>
+                      <p className="font-mono text-white text-[13px] font-semibold tracking-wider select-all">{profile.upiId}</p>
+                      <p className="text-[9px] text-muted/50 uppercase tracking-widest">Authenticates instantly via scanning applications.</p>
+                    </>
+                  ) : (
+                    profile?.bankAccount && (
+                      <div className="text-[11px] font-mono space-y-1 bg-white/[0.02] p-4 rounded-2xl text-left border border-white/5">
+                        <p className="text-white font-bold uppercase tracking-wider">{profile.bankName || 'Direct'}</p>
+                        <p className="select-all">Account: {profile.bankAccount}</p>
+                        <p className="select-all">IFSC/Swift: {profile.ifscCode}</p>
+                        <p className="select-all">Beneficiary: {profile.name}</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  const a = document.createElement('a');
+                  a.href = qrUrl;
+                  a.download = `payment-qr-${watchedNumber || 'invoice'}.png`;
+                  a.click();
+                }}
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download size={14} />
+                Download Scan Token (PNG)
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
