@@ -388,20 +388,29 @@ export const WorkspaceSync: React.FC = () => {
                 </div>
 
                 {isIframe ? (
-                  <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-                      <HelpCircle size={10} /> Iframe Sandbox
-                    </p>
-                    <p className="text-[9px] text-zinc-500 leading-normal">
-                      To select direct physical local folders, open the application in a new tab.
-                    </p>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                      <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+                        <HelpCircle size={10} /> Iframe Sandbox
+                      </p>
+                      <p className="text-[9px] text-zinc-500 leading-normal">
+                        To select physical hard drive folders, open the application in a new tab. However, you can connect to the secure Browser Database Sandbox inside this view right now!
+                      </p>
+                    </div>
+                    <button 
+                      onClick={connectWorkspace}
+                      className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>{workspaceConnected && !isDrive ? 'Switch Target' : 'Connect Browser Sandbox'}</span>
+                      <ArrowRight size={10} />
+                    </button>
                   </div>
                 ) : (
                   <button 
                     onClick={connectWorkspace}
                     className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>{workspaceConnected && !isDrive ? 'Switch Folder' : 'Connect Folder'}</span>
+                    <span>{workspaceConnected && !isDrive ? 'Switch Folder' : (typeof (window as any).showDirectoryPicker === 'function' ? 'Connect Folder' : 'Connect Browser Sandbox')}</span>
                     <ArrowRight size={10} />
                   </button>
                 )}

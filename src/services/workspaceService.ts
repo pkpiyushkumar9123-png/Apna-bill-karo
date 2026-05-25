@@ -27,6 +27,11 @@ export class WorkspaceService {
    * Request user to select a directory (local folder)
    */
   static async connect(): Promise<string> {
+    if (typeof (window as any).showDirectoryPicker !== 'function') {
+      localStorage.setItem(TYPE_KEY, 'virtual');
+      return 'Browser Sandbox Database (IndexedDB)';
+    }
+
     try {
       const handle = await (window as any).showDirectoryPicker({
         mode: 'readwrite',
@@ -73,6 +78,13 @@ export class WorkspaceService {
         needsPermission: !hasToken
       };
     }
+
+    if (type === 'virtual') {
+      return {
+        name: 'Browser Sandbox Database (IndexedDB)',
+        needsPermission: false
+      };
+    }
     
     // Otherwise fallback to local
     const savedHandle = await get(STORAGE_KEY);
@@ -105,6 +117,10 @@ export class WorkspaceService {
       } catch {
         return false;
       }
+    }
+
+    if (type === 'virtual') {
+      return true;
     }
 
     const savedHandle = await get(STORAGE_KEY);
@@ -142,6 +158,15 @@ export class WorkspaceService {
       return;
     }
 
+    if (type === 'virtual') {
+      await set(`virtual_fs_${fileName}`, content);
+      // Auto backup logic
+      if (fileName.endsWith('.xlsx')) {
+        await this.createBackup(fileName, content);
+      }
+      return;
+    }
+
     if (!this.handle) throw new Error('No workspace connected');
     
     try {
@@ -166,6 +191,11 @@ export class WorkspaceService {
       return await readDriveFile(fileName);
     }
 
+    if (type === 'virtual') {
+      const content = await get(`virtual_fs_${fileName}`);
+      return content || null;
+    }
+
     if (!this.handle) return null;
     try {
       const fileHandle = await this.handle.getFileHandle(fileName, { create: false });
@@ -182,6 +212,18 @@ export class WorkspaceService {
   }
 
   private static async createBackup(fileName: string, content: ArrayBuffer | string) {
+    const type = localStorage.getItem(TYPE_KEY);
+    if (type === 'virtual') {
+      try {
+        const timestamp = new Date().toISOString().split('T')[0];
+        const backupName = `backup_${timestamp}_${fileName}`;
+        await set(`virtual_fs_backups_${backupName}`, content);
+      } catch (err) {
+        console.warn('Backup failed', err);
+      }
+      return;
+    }
+
     if (!this.handle) return;
     try {
       const backupsDir = await this.handle.getDirectoryHandle('backups', { create: true });
