@@ -120,127 +120,126 @@ export const Dashboard: React.FC = () => {
   }, [products, invoices]);
 
   return (
-    <div className="space-y-8 pb-12 lg:space-y-12 max-w-[1600px] mx-auto">
+    <div className="space-y-6 pb-12 max-w-[1600px] mx-auto">
       {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-8">
-        <div className="lg:space-y-1">
-          <h1 className="text-4xl lg:text-5xl font-black tracking-tight mb-1 italic">Business Pulse</h1>
-          <p className="text-muted text-sm font-bold uppercase tracking-widest lg:tracking-[0.3em]">Real-time local metrics from your workspace</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Executive Overview</h1>
+          <p className="text-muted text-xs font-medium tracking-wide mt-1">Real-time enterprise metrics & cash ledger synced with your workspaces</p>
         </div>
-        <div className="flex items-center gap-3 lg:gap-5">
-          <NavLink to="/invoices/new" className="btn-primary py-3 px-6 lg:py-4 lg:px-8 flex items-center gap-2 text-xs lg:text-sm shadow-xl shadow-primary/30 rounded-2xl bg-primary text-white hover:scale-105 transition-transform">
-            <Plus size={18} className="lg:w-5 lg:h-5" />
-            Create Invoice
+        <div className="flex items-center gap-2.5">
+          <NavLink to="/invoices/new" className="px-3.5 py-2 bg-[#FF4D57] hover:bg-[#ff3c47] text-white font-semibold rounded text-xs transition-all flex items-center gap-1.5 shadow-sm">
+            <Plus size={14} />
+            New Invoice
           </NavLink>
-          <div className="flex items-center gap-2 glass px-4 py-3 lg:px-6 lg:py-4 rounded-2xl text-sm font-bold border border-white/5 bg-white/5 shadow-inner">
-            <Calendar size={18} className="text-primary lg:w-5 lg:h-5" />
-            {format(new Date(), 'MMMM dd, yyyy')}
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#111214] border border-white/5 rounded text-xs font-semibold text-[#A1A1AA]">
+            <Calendar size={14} className="text-[#FF4D57]" />
+            {format(new Date(), 'MMM dd, yyyy')}
           </div>
         </div>
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 overflow-visible">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Total Profit" 
           value={`${profile?.currency || 'INR'} ${stats.profit.toLocaleString()}`} 
           trend={`${stats.monthProfit >= 0 ? '+' : ''}${stats.monthProfit.toLocaleString()} this month`} 
           isPositive={stats.monthProfit >= 0} 
-          icon={<Zap size={22} className="text-primary fill-primary" />} 
+          icon={<Zap size={16} className="text-[#FF4D57]" />} 
         />
         <StatCard 
-          title="Accounts Receivable" 
+          title="Receivables Ledger" 
           value={`${profile?.currency || 'INR'} ${stats.receivables.toLocaleString()}`} 
-          trend="Pending Collection" 
+          trend="Outstanding Receivables" 
           isPositive={true} 
-          icon={<Clock size={22} className="text-yellow-500" />} 
+          icon={<Clock size={16} className="text-amber-500" />} 
         />
         <StatCard 
           title="Total Revenue" 
           value={`${profile?.currency || 'INR'} ${stats.totalRev.toLocaleString()}`} 
-          trend="Lifetime" 
+          trend="All-Time Performance" 
           isPositive={true} 
-          icon={<TrendingUp size={22} className="text-green-500" />} 
+          icon={<TrendingUp size={16} className="text-emerald-500" />} 
         />
         <StatCard 
           title="Total Expenses" 
           value={`${profile?.currency || 'INR'} ${stats.totalExp.toLocaleString()}`} 
-          trend="Lifetime" 
+          trend="All-Time Performance" 
           isPositive={false} 
-          icon={<Wallet size={22} className="text-red-500" />} 
+          icon={<Wallet size={16} className="text-red-400" />} 
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Performance Chart */}
-        <div className="lg:col-span-8 glass-card !p-8 lg:!p-10 h-[450px] lg:h-[500px]">
-          <div className="flex justify-between items-start mb-8 lg:mb-12">
+        <div className="lg:col-span-8 bg-[#111214] border border-white/5 rounded-xl p-5 md:p-6 h-[400px]">
+          <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="font-black text-xl lg:text-2xl italic tracking-tight">Cash Flow Performance</h3>
-              <p className="text-[10px] lg:text-xs font-bold text-muted uppercase tracking-widest lg:tracking-[0.2em] mt-1">Inflow vs Outflow (Last 6 Months)</p>
+              <h3 className="font-semibold text-sm text-white tracking-tight">Cash Flow Analytics</h3>
+              <p className="text-[10px] text-muted font-medium mt-0.5">Cash Inflow vs Expense Outflow (6-Month Historical)</p>
             </div>
-            <div className="flex gap-6">
-              <div className="flex items-center gap-3 text-[10px] lg:text-xs font-black tracking-widest text-primary uppercase">
-                <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_10px_rgba(255,68,68,0.5)]" /> Inflow
+            <div className="flex gap-4">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold text-white tracking-wider uppercase">
+                <div className="w-2 h-2 rounded-full bg-[#FF4D57]" /> Inflow
               </div>
-              <div className="flex items-center gap-3 text-[10px] lg:text-xs font-black tracking-widest text-muted uppercase">
-                <div className="w-2.5 h-2.5 rounded-full bg-white/20" /> Outflow
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[#A1A1AA] tracking-wider uppercase">
+                <div className="w-2 h-2 rounded-full bg-white/10" /> Outflow
               </div>
             </div>
           </div>
-          <div className="h-[300px] lg:h-[340px] w-full">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FF4444" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#FF4444" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#FF4D57" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#FF4D57" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  stroke="#8E9299" 
-                  fontSize={11} 
-                  fontWeight={600}
+                  stroke="#52525B" 
+                  fontSize={10} 
+                  fontWeight={500}
                   tickLine={false} 
                   axisLine={false} 
-                  dy={15} 
+                  dy={10} 
                 />
                 <YAxis 
-                  stroke="#8E9299" 
-                  fontSize={11} 
-                  fontWeight={600}
+                  stroke="#52525B" 
+                  fontSize={10} 
+                  fontWeight={500}
                   tickLine={false} 
                   axisLine={false} 
-                  tickFormatter={(v) => `$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} 
+                  tickFormatter={(v) => `${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} 
                 />
                 <Tooltip 
-                  cursor={{ stroke: '#FF444433', strokeWidth: 2 }}
+                  cursor={{ stroke: '#FF4D571a', strokeWidth: 1 }}
                   contentStyle={{ 
-                    backgroundColor: '#141414', 
-                    border: '1px solid #ffffff10', 
-                    borderRadius: '20px', 
-                    boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)',
-                    padding: '12px 16px'
+                    backgroundColor: '#15171A', 
+                    border: '1px solid rgba(255,255,255,0.06)', 
+                    borderRadius: '8px', 
+                    padding: '8px 12px'
                   }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                  itemStyle={{ fontSize: '11px', fontWeight: '500', color: '#F5F5F5' }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="revenue" 
-                  stroke="#FF4444" 
-                  strokeWidth={4} 
+                  stroke="#FF4D57" 
+                  strokeWidth={2} 
                   fillOpacity={1} 
                   fill="url(#colorRev)" 
-                  animationDuration={1500}
+                  animationDuration={1000}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="expense" 
-                  stroke="#ffffff20" 
-                  strokeWidth={2}
-                  strokeDasharray="8 8" 
+                  stroke="rgba(255,255,255,0.15)" 
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4" 
                   fill="transparent" 
                 />
               </AreaChart>
@@ -249,101 +248,104 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="lg:col-span-4 glass-card flex flex-col !p-8 lg:!p-10">
-          <div className="mb-8 flex justify-between items-center">
+        <div className="lg:col-span-4 bg-[#111214] border border-white/5 rounded-xl flex flex-col p-5 md:p-6">
+          <div className="mb-5 flex justify-between items-center">
             <div>
-              <h3 className="font-black text-xl lg:text-2xl italic tracking-tight">Stock Alerts</h3>
-              <p className="text-[10px] lg:text-xs font-bold text-muted uppercase tracking-widest lg:tracking-[0.2em] mt-1">Inventory status</p>
+              <h3 className="font-semibold text-sm text-white tracking-tight">Inventory Monitoring</h3>
+              <p className="text-[10px] text-muted font-medium mt-0.5">Critical thresholds alerts</p>
             </div>
-            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-              <Package size={24} />
+            <div className="p-2 rounded bg-white/5 text-[#A1A1AA]">
+              <Package size={16} />
             </div>
           </div>
           
-          <div className="space-y-5 flex-1">
+          <div className="space-y-3 flex-1">
             {lowStockProducts.length > 0 ? lowStockProducts.map(product => {
               return (
-                <div key={product.id} className="p-5 bg-white/[0.03] rounded-3xl border border-white/5 space-y-4 group hover:bg-white/[0.05] hover:border-primary/30 transition-all cursor-default">
+                <div key={product.id} className="p-3 bg-white/[0.01] rounded-lg border border-white/5 space-y-2.5 transition-all hover:bg-white/[0.02]">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{product.name}</p>
-                      <p className="text-[11px] text-muted font-mono tracking-tighter uppercase mt-0.5">{product.sku}</p>
+                      <p className="text-xs font-semibold text-white truncate">{product.name}</p>
+                      <p className="text-[9px] text-[#A1A1AA] font-mono leading-none mt-1">{product.sku}</p>
                     </div>
-                    <div className="text-right ml-4">
-                      <p className="text-base font-black text-primary leading-none">{product.available}</p>
-                      <p className="text-[9px] font-bold text-muted uppercase tracking-widest mt-1">Units</p>
+                    <div className="text-right ml-4 leading-none">
+                      <p className="text-sm font-bold text-[#FF4D57]">{product.available}</p>
+                      <p className="text-[8px] text-[#A1A1AA] font-semibold uppercase tracking-wider mt-0.5">Units</p>
                     </div>
                   </div>
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full transition-all duration-1000 ${product.available <= product.minStockLevel ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]'}`}
+                      className={`h-full transition-all duration-500 ${product.available <= product.minStockLevel ? 'bg-red-400' : 'bg-emerald-500'}`}
                       style={{ width: `${Math.min(100, (product.available / (product.minStockLevel || 1)) * 100)}%` }}
                     />
                   </div>
                 </div>
               );
             }) : (
-              <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-12">
-                <CheckCircle2 size={48} className="mb-6 text-green-500" />
-                <p className="text-xs font-bold uppercase tracking-widest tracking-[0.3em]">Inventory Healthy</p>
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-12">
+                <CheckCircle2 size={32} className="mb-4 text-emerald-500" />
+                <p className="text-[10px] font-black uppercase tracking-widest">Inventory Healthy</p>
               </div>
             )}
           </div>
           
-          <NavLink to="/products" className="mt-8 w-full py-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-[11px] font-black uppercase tracking-[0.3em] text-center transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <NavLink to="/products" className="mt-5 w-full py-2 bg-white/5 hover:bg-white/10 active:bg-white/15 rounded text-[10px] font-semibold uppercase tracking-wider text-center text-white transition-all">
             Manage Inventory
           </NavLink>
         </div>
       </div>
 
       {/* Recent Activity Mini-Table */}
-      <div className="glass-card !p-8 lg:!p-12 overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] pointer-events-none" />
-        <div className="flex justify-between items-center mb-10 relative">
+      <div className="bg-[#111214] border border-white/5 rounded-xl p-5 md:p-6 overflow-hidden">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className="text-xl lg:text-2xl font-black italic tracking-tight">Recent Transactions</h3>
-            <p className="text-[10px] lg:text-xs font-bold text-muted uppercase tracking-widest mt-1">Latest ledger entries</p>
+            <h3 className="text-sm font-semibold text-white tracking-tight">Transaction Ledger</h3>
+            <p className="text-[10px] text-muted font-medium mt-0.5">Latest account movements</p>
           </div>
-          <NavLink to="/invoices" className="btn-secondary py-3 px-6 lg:px-8 rounded-2xl flex items-center gap-3 group">
-            <span className="text-[10px] lg:text-xs font-black uppercase tracking-[0.2em]">View All Register</span>
-            <ArrowUpRight size={16} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          <NavLink to="/invoices" className="px-3 py-1.5 bg-[#15171A] hover:bg-[#1d2024] text-white border border-white/5 rounded font-semibold text-[10px] tracking-wide flex items-center gap-1.5 transition-all">
+            <span>Open Ledger</span>
+            <ArrowUpRight size={12} />
           </NavLink>
         </div>
         <div className="overflow-x-auto relative">
-          <table className="w-full text-left border-separate border-spacing-y-2">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th className="pb-4 px-4 text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50">Reference</th>
-                <th className="pb-4 px-4 text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50">Contact</th>
-                <th className="pb-4 px-4 text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50 text-center">Status</th>
-                <th className="pb-4 px-4 text-[10px] font-black text-muted uppercase tracking-[0.2em] opacity-50 text-right">Amount</th>
+              <tr className="border-b border-white/5">
+                <th className="pb-3 text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider">Reference</th>
+                <th className="pb-3 text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider">Client Connection</th>
+                <th className="pb-3 text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider text-center">Status</th>
+                <th className="pb-3 text-[10px] font-semibold text-[#A1A1AA] uppercase tracking-wider text-right">Settlement</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.slice(0, 6).map(inv => (
-                <tr key={inv.id} className="group cursor-pointer">
-                  <td className="py-5 px-4 bg-white/[0.02] group-hover:bg-white/[0.05] transition-colors rounded-l-3xl">
-                    <p className="text-sm font-black group-hover:text-primary transition-colors tracking-tight">#{inv.number}</p>
-                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-0.5">{format(inv.date, 'MMM dd, yyyy')}</p>
-                  </td>
-                  <td className="py-5 px-4 bg-white/[0.02] group-hover:bg-white/[0.05] transition-colors">
-                    <p className="text-sm font-bold text-white/90">{inv.customerId ? inv.customerId.slice(-4) : 'Walk-in'}</p>
-                    <p className="text-[10px] text-muted font-medium">{inv.items.length} items included</p>
-                  </td>
-                  <td className="py-5 px-4 bg-white/[0.02] group-hover:bg-white/[0.05] transition-colors text-center">
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                      inv.status === 'paid' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
-                      inv.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 
-                      'bg-red-500/10 text-red-500 border-red-500/20'
-                    }`}>
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="py-5 px-4 bg-white/[0.02] group-hover:bg-white/[0.05] transition-colors text-right rounded-r-3xl">
-                    <p className="text-base font-black font-mono text-white/90">{profile?.currency || 'INR'} {inv.total.toLocaleString()}</p>
-                  </td>
-                </tr>
-              ))}
+              {invoices.slice(0, 5).map(inv => {
+                const customer = customers.find(c => c.id === inv.customerId);
+                const clientName = customer ? (customer.companyName || customer.name) : 'Private Client';
+                return (
+                  <tr key={inv.id} className="border-b border-white/[0.02] hover:bg-white/[0.01] transition-colors">
+                    <td className="py-3 px-0">
+                      <p className="text-xs font-bold text-white">#{inv.number}</p>
+                      <p className="text-[9px] text-[#A1A1AA] mt-1">{format(inv.date, 'MMM dd, yyyy')}</p>
+                    </td>
+                    <td className="py-3 px-0">
+                      <p className="text-xs font-medium text-white/90">{clientName}</p>
+                      <p className="text-[9px] text-[#A1A1AA] mt-0.5">{inv.items.length} positions</p>
+                    </td>
+                    <td className="py-3 px-0 text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${
+                        inv.status === 'paid' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/10' : 
+                        inv.status === 'pending' ? 'bg-amber-500/15 text-amber-500 border-amber-500/10' : 
+                        'bg-red-500/15 text-red-400 border-red-500/10'
+                      }`}>
+                        {inv.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-0 text-right">
+                      <p className="text-xs font-bold font-mono text-[#F5F5F5]">{profile?.currency || 'INR'} {inv.total.toLocaleString()}</p>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -353,16 +355,16 @@ export const Dashboard: React.FC = () => {
 };
 
 const StatCard = ({ title, value, trend, isPositive, icon }: any) => (
-  <div className="glass-card hover:translate-y-[-4px] group">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:border-primary/20 transition-all">
+  <div className="bg-[#111214] border border-white/5 rounded-xl p-4.5 transition-all hover:bg-[#15171A]">
+    <div className="flex justify-between items-start mb-3">
+      <div className="p-2 bg-white/5 rounded border border-white/5 text-[#A1A1AA]">
         {icon}
       </div>
-      <div className={`text-[10px] font-black uppercase tracking-widest ${isPositive ? 'text-green-500' : 'text-primary'}`}>
+      <div className={`text-[9px] font-semibold tracking-wider uppercase ${isPositive ? 'text-emerald-400' : 'text-[#FF4D57]'}`}>
         {trend}
       </div>
     </div>
-    <div className="text-2xl font-black tracking-tight">{value}</div>
-    <div className="text-[10px] text-muted font-bold mt-1 uppercase tracking-[0.2em]">{title}</div>
+    <div className="text-xl font-bold tracking-tight text-white leading-none">{value}</div>
+    <div className="text-[9px] text-[#A1A1AA] font-semibold mt-2 uppercase tracking-widest">{title}</div>
   </div>
 );

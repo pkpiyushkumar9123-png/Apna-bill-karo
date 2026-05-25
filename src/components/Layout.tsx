@@ -115,109 +115,111 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <aside 
         className={`fixed inset-y-0 left-0 z-50 transition-all duration-300 transform lg:relative lg:translate-x-0 ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} glass border-r border-white/5 flex flex-col`}
+        } ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} bg-[#111214] border-r border-white/5 flex flex-col`}
       >
-        <div className="p-6 flex items-center justify-between overflow-hidden">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-white/10 bg-white/5">
+        <div className="p-5 flex items-center justify-between overflow-hidden border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0 border border-white/10 bg-white/5">
               {profile?.logoUrl ? (
                 <img src={profile.logoUrl} alt="Logo" className="w-full h-full object-contain" />
               ) : (
-                <Zap className="text-primary fill-primary" size={24} />
+                <Zap className="text-[#FF4D57] fill-[#FF4D57]/5" size={18} />
               )}
             </div>
             {!isCollapsed && (
-              <motion.span 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xl font-bold tracking-tight whitespace-nowrap"
-              >
-                {profile?.name?.split(' ')[0] || 'apna-bill-karo'}
-              </motion.span>
+              <div className="flex flex-col">
+                <motion.span 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-sm font-semibold tracking-tight text-white whitespace-nowrap"
+                >
+                  {profile?.name || 'Enterprise Workspace'}
+                </motion.span>
+                <span className="text-[9px] text-[#A1A1AA] uppercase tracking-wider font-medium leading-none mt-0.5">Admin Desk</span>
+              </div>
             )}
           </div>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:flex p-1.5 rounded-lg hover:bg-white/5 text-muted transition-all"
+            className="hidden lg:flex p-1.5 rounded hover:bg-white/5 text-[#A1A1AA] transition-all"
           >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-muted transition-all"
+            className="lg:hidden p-1.5 rounded hover:bg-white/5 text-[#A1A1AA] transition-all"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 mt-4 overflow-hidden">
-          <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" collapsed={isCollapsed} />
-          <NavItem to="/invoices" icon={<FileText size={20} />} label="Invoices" collapsed={isCollapsed} />
-          <NavItem to="/expenses" icon={<Wallet size={20} />} label="Expenses" collapsed={isCollapsed} />
-          <NavItem to="/customers" icon={<Users size={20} />} label="Customers" collapsed={isCollapsed} />
-          <NavItem to="/products" icon={<Package size={20} />} label="Inventory" collapsed={isCollapsed} />
-          <NavItem to="/reports" icon={<BarChart3 size={20} />} label="Accounting" collapsed={isCollapsed} />
-          <NavItem to="/workspace-sync" icon={<FolderSync size={20} />} label="Workspace Sync" collapsed={isCollapsed} />
-          <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" collapsed={isCollapsed} />
+        <nav className="flex-1 px-3 space-y-1 mt-4 overflow-hidden">
+          <NavItem to="/dashboard" icon={<LayoutDashboard size={18} />} label="Overview" collapsed={isCollapsed} />
+          <NavItem to="/invoices" icon={<FileText size={18} />} label="Invoices" collapsed={isCollapsed} />
+          <NavItem to="/expenses" icon={<Wallet size={18} />} label="Expense Management" collapsed={isCollapsed} />
+          <NavItem to="/customers" icon={<Users size={18} />} label="Client Accounts" collapsed={isCollapsed} />
+          <NavItem to="/products" icon={<Package size={18} />} label="Inventory Control" collapsed={isCollapsed} />
+          <NavItem to="/reports" icon={<BarChart3 size={18} />} label="Analytics Center" collapsed={isCollapsed} />
+          <NavItem to="/workspace-sync" icon={<FolderSync size={18} />} label="Cloud Workspace" collapsed={isCollapsed} />
+          <NavItem to="/settings" icon={<Settings size={18} />} label="Workspace Preferences" collapsed={isCollapsed} />
         </nav>
 
-        <div className="p-4 space-y-4 mt-auto">
+        <div className="p-3 space-y-3 mt-auto">
           {workspaceConnected && !isCollapsed && (
-            <div className="p-4 glass rounded-3xl border border-white/5 space-y-3 relative group overflow-hidden">
-              <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="p-3.5 bg-[#15171A] rounded-xl border border-white/5 space-y-2.5 relative group overflow-hidden">
+              <div className="absolute top-0 right-0 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={disconnectWorkspace}
                   className="p-1 hover:bg-white/5 rounded text-red-400"
                   title="Disconnect Workspace"
                 >
-                  <X size={12} />
+                  <X size={10} />
                 </button>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <HardDrive size={16} />
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded bg-white/5 flex items-center justify-center text-[#FF4D57]">
+                  <HardDrive size={14} />
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Workspace</p>
-                  <p className="text-xs font-bold truncate">{workspaceName}</p>
+                  <p className="text-[8px] font-black text-[#A1A1AA] uppercase tracking-widest leading-none">Connected Drive</p>
+                  <p className="text-xs font-semibold text-white truncate mt-0.5">{workspaceName}</p>
                 </div>
               </div>
               {isDrive ? (
-                <div className="space-y-2 pt-2 border-t border-white/5">
-                  <div className="flex items-center justify-between text-[11px] font-medium text-muted">
-                    <span className="flex items-center gap-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${gdriveSyncEnabled ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`} />
-                      Cloud Sync {gdriveSyncEnabled ? 'Active' : 'Paused'}
+                <div className="space-y-1.5 pt-1.5 border-t border-white/5">
+                  <div className="flex items-center justify-between text-[10px] font-medium text-[#A1A1AA]">
+                    <span className="flex items-center gap-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${gdriveSyncEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-500'}`} />
+                      Cloud Connected
                     </span>
                     <button
                       onClick={() => setGdriveSyncEnabled(!gdriveSyncEnabled)}
-                      className="text-[10px] text-primary hover:text-primary/80 underline font-medium cursor-pointer"
+                      className="text-[9px] text-[#FF4D57] hover:underline font-semibold cursor-pointer"
                     >
                       {gdriveSyncEnabled ? 'Pause' : 'Resume'}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
-                    <span className="text-[9px] text-muted-foreground truncate flex-1 leading-none self-center">
+                  <div className="flex items-center justify-between gap-1 pt-1">
+                    <span className="text-[8px] text-[#A1A1AA]/60 truncate mr-2 leading-none">
                       {lastSyncTime ? `Synced: ${new Date(lastSyncTime).toLocaleTimeString()}` : 'Not synced'}
                     </span>
                     <button
                       onClick={() => syncCloudData(true)}
                       disabled={isSyncingCloud}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-white/10 active:bg-white/15 rounded text-[10px] font-bold text-white transition-all cursor-pointer select-none disabled:opacity-50"
+                      className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold text-white transition-all disabled:opacity-50"
                     >
-                      <RefreshCw size={10} className={`${isSyncingCloud ? 'animate-spin text-primary' : ''}`} />
+                      <RefreshCw size={8} className={`${isSyncingCloud ? 'animate-spin text-[#FF4D57]' : ''}`} />
                       Sync
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between text-[8px] font-bold text-muted uppercase tracking-[0.2em] pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between text-[8px] font-bold text-[#A1A1AA] uppercase tracking-[0.1em] pt-1.5 border-t border-white/5 leading-none">
                   <span className="flex items-center gap-1">
-                    <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                    <div className="w-1 h-1 rounded-full bg-emerald-500" />
                     Live Sync
                   </span>
                   <span className="flex items-center gap-1">
-                    <FolderSync size={10} />
                     Excel DB
                   </span>
                 </div>
@@ -225,8 +227,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
           )}
 
-          <div className={`glass rounded-2xl transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'} flex items-center gap-3 overflow-hidden`}>
-            <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden shrink-0">
+          <div className={`bg-[#15171A] border border-white/5 rounded-xl transition-all duration-300 ${isCollapsed ? 'p-1.5' : 'p-3'} flex items-center gap-2.5 overflow-hidden`}>
+            <div className="w-8 h-8 rounded-full bg-white/5 overflow-hidden shrink-0 border border-white/5">
               <img 
                 src={profile?.logoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.name || 'User'}`} 
                 alt="Profile" 
@@ -235,8 +237,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             {!isCollapsed && (
               <div className="flex-1 overflow-hidden min-w-0">
-                <p className="text-sm font-medium truncate">{profile?.name || 'Guest User'}</p>
-                <p className="text-xs text-muted truncate">{profile?.email || 'local@novabill.app'}</p>
+                <p className="text-xs font-semibold text-white truncate leading-none">{profile?.name || 'Guest User'}</p>
+                <p className="text-[9px] text-[#A1A1AA] truncate leading-none mt-1">{profile?.email || 'local@novabill.app'}</p>
               </div>
             )}
           </div>
@@ -246,88 +248,104 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#0A0A0B]">
         {/* Header */}
-        <header className="h-20 glass-card !rounded-none border-b border-white/5 flex items-center justify-between px-4 md:px-8 z-10">
-          <div className="flex items-center gap-4">
+        <header className="h-14 bg-[#111214] border-b border-white/5 flex items-center justify-between px-4 md:px-6 z-10">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2.5 rounded-xl bg-white/5 text-muted"
+              className="lg:hidden p-1.5 rounded bg-white/5 text-[#A1A1AA]"
             >
-              <Menu size={20} />
+              <Menu size={16} />
             </button>
-            <div className="relative w-72 md:w-96 hidden sm:block">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search across files..." 
-                className="w-full py-2.5 pl-12 pr-4 bg-white/5 border border-white/10 rounded-full text-sm focus:outline-none focus:border-primary/50 transition-all"
-              />
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white tracking-tight">{profile?.name || 'Enterprise Desk'}</span>
+              <span className="px-1.5 py-0.5 rounded bg-white/5 text-[8px] font-semibold text-emerald-400 border border-emerald-500/10 uppercase tracking-widest leading-none flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" /> Executive Workspace
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-3">
             <GoogleDriveSyncIndicator />
             <SaveIndicator />
-            <div className="h-6 w-[1px] bg-white/10 mx-1 md:mx-2" />
-            <button className="p-2.5 rounded-full hover:bg-white/5 text-muted transition-all relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
+            <div className="h-4 w-[1px] bg-white/10 hidden sm:block" />
+            <button className="p-1.5 rounded-full hover:bg-white/5 text-[#A1A1AA] transition-all relative hidden sm:block">
+              <Bell size={16} />
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#FF4D57] rounded-full" />
             </button>
-            <NavLink to="/invoices/new" className="btn-primary py-2.5 px-3 md:px-6 flex items-center gap-2 text-xs md:text-sm">
-              <PlusCircle size={18} />
-              <span className="hidden md:inline">New Invoice</span>
+            <NavLink to="/invoices/new" className="px-3 py-1.5 bg-[#FF4D57] hover:bg-[#ff3c47] text-white font-semibold rounded text-xs transition-all flex items-center gap-1.5">
+              <PlusCircle size={14} />
+              <span>New Invoice</span>
             </NavLink>
           </div>
         </header>
 
         {/* Dynamic Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 md:pb-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {children}
           </motion.div>
+        </div>
+
+        {/* Floating Dock style Bottom Navigation Bar for Mobile Tab-Navigation */}
+        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#111214]/90 backdrop-blur-md rounded-xl border border-white/5 p-2 flex items-center justify-around shadow-lg">
+          <MobileTab to="/dashboard" icon={<LayoutDashboard size={18} />} label="Overview" />
+          <MobileTab to="/invoices" icon={<FileText size={18} />} label="Invoices animate-none" />
+          <MobileTab to="/reports" icon={<BarChart3 size={18} />} label="Analytics" />
+          <MobileTab to="/expenses" icon={<Wallet size={18} />} label="Operations" />
+          <MobileTab to="/settings" icon={<Settings size={18} />} label="More" />
         </div>
       </main>
     </div>
   );
 };
 
+const MobileTab = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) => (
+  <NavLink 
+    to={to} 
+    className={({ isActive }) => `
+      flex flex-col items-center gap-0.5 p-1 rounded-lg transition-colors
+      ${isActive ? 'text-[#FF4D57]' : 'text-[#A1A1AA] hover:text-white'}
+    `}
+  >
+    {icon}
+    <span className="text-[8px] font-semibold uppercase tracking-wider">{label.split(' ')[0]}</span>
+  </NavLink>
+);
+
 const NavItem = ({ to, icon, label, collapsed }: { to: string; icon: React.ReactNode; label: string; collapsed?: boolean }) => (
   <NavLink
     to={to}
     className={({ isActive }) => `
-    flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative
+    flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all group relative
     ${isActive 
-      ? 'bg-primary/10 text-primary shadow-sm shadow-primary/5' 
-      : 'text-muted hover:text-white hover:bg-white/5'}
+      ? 'bg-[#15171A] text-white border-l-2 border-[#FF4D57]' 
+      : 'text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-white/[0.01]'}
     ${collapsed ? 'justify-center px-0' : ''}
   `}
   >
-    <div className={`transition-transform duration-300 ${collapsed ? 'group-hover:scale-110' : ''}`}>
+    <div className={`transition-transform duration-200 shrink-0`}>
       {icon}
     </div>
     {!collapsed && (
-      <motion.span 
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="truncate"
-      >
+      <span className="truncate tracking-wide">
         {label}
-      </motion.span>
+      </span>
     )}
     {collapsed && (
-      <div className="absolute left-full ml-4 px-2 py-1 bg-background border border-white/10 rounded-lg text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+      <div className="absolute left-full ml-4 px-2 py-1 bg-background border border-white/10 rounded text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
         {label}
       </div>
     )}
@@ -337,16 +355,16 @@ const NavItem = ({ to, icon, label, collapsed }: { to: string; icon: React.React
 const CommandItem = ({ icon, label, shortcut, onClick }: { icon: React.ReactNode; label: string; shortcut?: string; onClick: () => void }) => (
   <button 
     onClick={onClick}
-    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 text-sm transition-all group"
+    className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-white/5 text-xs transition-all group"
   >
-    <div className="flex items-center gap-3">
-      <div className="text-muted group-hover:text-primary transition-colors">
+    <div className="flex items-center gap-2.5">
+      <div className="text-[#A1A1AA] group-hover:text-[#FF4D57] transition-colors">
         {icon}
       </div>
-      <span className="font-medium">{label}</span>
+      <span className="font-medium text-white">{label}</span>
     </div>
     {shortcut && (
-      <div className="px-2 py-0.5 bg-white/5 rounded border border-white/10 text-[10px] font-bold text-muted group-hover:text-white uppercase transition-all">
+      <div className="px-1.5 py-0.5 bg-white/5 rounded border border-white/10 text-[8px] font-bold text-[#A1A1AA] group-hover:text-white uppercase transition-all">
         {shortcut}
       </div>
     )}

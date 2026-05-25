@@ -9,7 +9,7 @@ export const ExcelService = {
    * Converts a list of objects to an Excel Buffer
    */
   generateExcelBuffer<T>(data: T[], sheetName: string): ArrayBuffer {
-    const ws = XLSX.utils.json_to_sheet(this.prepareForExcel(data));
+    const ws = XLSX.utils.json_to_sheet(this.prepareForExcel(data, sheetName));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -19,12 +19,12 @@ export const ExcelService = {
   /**
    * Prepares data for Excel (flattening nested objects if necessary)
    */
-  prepareForExcel(data: any[]): any[] {
+  prepareForExcel(data: any[], entityType?: string): any[] {
     return data.map(item => {
       const flattened: any = { ...item };
       
       // Specifically handle Invoice mapping to match user request
-      if ('number' in item && 'total' in item) {
+      if (entityType === 'invoices' || ('number' in item && 'total' in item)) {
         return {
           invoice_id: item.id,
           invoice_number: item.number,
@@ -52,7 +52,7 @@ export const ExcelService = {
       }
 
       // Handle Customer mapping
-      if ('email' in item && 'address' in item && !('number' in item)) {
+      if (entityType === 'customers' || ('email' in item && 'address' in item && !('number' in item) && !('bankName' in item) && !('bank_name' in item))) {
         return {
           customer_id: item.id,
           customer_name: item.name,
@@ -68,7 +68,7 @@ export const ExcelService = {
       }
 
       // Handle Product mapping
-      if ('price' in item && 'taxRate' in item) {
+      if (entityType === 'products' || ('price' in item && 'taxRate' in item)) {
         return {
           product_id: item.id,
           product_name: item.name,
@@ -85,7 +85,7 @@ export const ExcelService = {
       }
 
       // Handle Expense mapping
-      if ('amount' in item && 'paymentMethod' in item) {
+      if (entityType === 'expenses' || ('amount' in item && 'paymentMethod' in item)) {
         return {
           expense_id: item.id,
           title: item.title,
@@ -98,7 +98,7 @@ export const ExcelService = {
       }
 
       // Handle Settings/BusinessProfile mapping
-      if (('currency' in item && !('price' in item) && !('number' in item) && !('amount' in item) && !('createdAt' in item)) || 'bankName' in item || 'upiId' in item || 'paypalId' in item) {
+      if (entityType === 'profile' || entityType === 'settings' || ('currency' in item && !('price' in item) && !('number' in item) && !('amount' in item) && !('createdAt' in item)) || 'bankName' in item || 'upiId' in item || 'paypalId' in item) {
         return {
           id: item.id || 'default',
           company_name: item.name,
