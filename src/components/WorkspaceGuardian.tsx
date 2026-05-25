@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FolderPlus, 
@@ -12,7 +12,8 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Cloud,
-  ArrowRight
+  ArrowRight,
+  Plus
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -27,6 +28,8 @@ export const WorkspaceGuardian: React.FC = () => {
     requestWorkspacePermission,
     isLoading 
   } = useStore();
+
+  const [showFolderOptions, setShowFolderOptions] = useState(false);
 
   if (isLoading) return null;
 
@@ -137,7 +140,13 @@ export const WorkspaceGuardian: React.FC = () => {
                     </div>
                   ) : (
                     <button 
-                      onClick={connectWorkspace}
+                      onClick={() => {
+                        if (typeof (window as any).showDirectoryPicker === 'function') {
+                          setShowFolderOptions(true);
+                        } else {
+                          connectWorkspace();
+                        }
+                      }}
                       className="w-full py-3.5 px-4 bg-white/10 border border-white/10 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-white/15 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <span>Connect Local Folder</span>
@@ -211,6 +220,81 @@ export const WorkspaceGuardian: React.FC = () => {
           </motion.div>
         </motion.div>
       )}
+
+      <AnimatePresence>
+        {showFolderOptions && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#15171A] border border-white/10 rounded-[28px] max-w-md w-full p-6 space-y-6 relative shadow-2xl"
+            >
+              {/* Close button */}
+              <button 
+                onClick={() => setShowFolderOptions(false)}
+                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <Plus className="rotate-45" size={18} />
+              </button>
+
+              <div className="space-y-1 text-left">
+                <p className="text-[10px] text-[#FF4D57] font-bold uppercase tracking-widest">Workspace Connection</p>
+                <h3 className="text-lg font-extrabold text-white">Select Folder Type</h3>
+                <p className="text-[11px] text-zinc-400">Choose how you'd like to link your local hard-drive ledger directory.</p>
+              </div>
+
+              <div className="space-y-4 text-left">
+                {/* Option 1: Create New */}
+                <button
+                  onClick={async () => {
+                    setShowFolderOptions(false);
+                    await connectWorkspace('new');
+                  }}
+                  className="w-full text-left p-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all group flex items-start gap-4 cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#FF4D57]/10 flex items-center justify-center text-[#FF4D57] shrink-0 group-hover:scale-105 transition-transform font-bold">
+                    <FolderPlus size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-white group-hover:text-[#FF4D57] transition-colors">1. Create New Storage Folder</h4>
+                    <p className="text-[10px] text-zinc-400 leading-normal">
+                      Connect a brand new, empty folder. NovaBill will automatically populate it with empty spreadsheet databases for invoices, customers, and expenses.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Option 2: Choose Existing */}
+                <button
+                  onClick={async () => {
+                    setShowFolderOptions(false);
+                    await connectWorkspace('existing');
+                  }}
+                  className="w-full text-left p-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all group flex items-start gap-4 cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
+                    <FolderOpen size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">2. Choose Existing Storage Folder</h4>
+                    <p className="text-[10px] text-zinc-400 leading-normal">
+                      Select a folder where you have previously saved your NovaBill files to resume managing your existing business ledger sheets.
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowFolderOptions(false)}
+                className="w-full py-2 px-4 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 text-xs font-semibold text-zinc-300 rounded-xl transition-all text-center cursor-pointer"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };

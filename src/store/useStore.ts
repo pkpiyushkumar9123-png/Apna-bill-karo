@@ -28,7 +28,7 @@ interface AppState {
 
   // Actions
   init: () => Promise<void>;
-  connectWorkspace: () => Promise<void>;
+  connectWorkspace: (mode?: 'new' | 'existing') => Promise<void>;
   connectDriveWorkspace: () => Promise<void>;
   requestWorkspacePermission: () => Promise<void>;
   disconnectWorkspace: () => void;
@@ -181,13 +181,36 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  connectWorkspace: async () => {
+  connectWorkspace: async (mode?: 'new' | 'existing') => {
     set({ workspaceError: null });
     try {
       const name = await WorkspaceService.connect();
       set({ workspaceConnected: true, workspaceName: name, workspaceError: null });
+
+      if (mode === 'new') {
+        const type = localStorage.getItem('novabill_workspace_type');
+        if (type === 'local') {
+          await Promise.all([
+            WorkspaceService.syncData('invoices', get().invoices),
+            WorkspaceService.syncData('customers', get().customers),
+            WorkspaceService.syncData('products', get().products),
+            WorkspaceService.syncData('expenses', get().expenses),
+            WorkspaceService.saveSettings({ 
+              theme: 'dark', 
+              accentColor: '#FF4444', 
+              density: 'comfortable', 
+              language: 'en', 
+              currencyDefault: 'INR', 
+              autoBackup: true, 
+              profile: get().profile || undefined 
+            })
+          ]);
+        }
+      }
+
       await get().init(); 
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error('Workspace connection failed', err);
       set({ workspaceError: err.message || 'Workspace connection failed' });
     }
