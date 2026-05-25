@@ -91,6 +91,13 @@ export const WorkspaceSync: React.FC = () => {
 
   const isDrive = localStorage.getItem('novabill_workspace_type') === 'gdrive';
   const isIframe = window.self !== window.top;
+  const hasDirectoryPicker = typeof (window as any).showDirectoryPicker === 'function' && !isIframe;
+  const popupTitle = hasDirectoryPicker ? 'Select Folder Type' : 'Select Sandbox Database Option';
+  const popupSub = hasDirectoryPicker ? "Choose how you'd like to link your local hard-drive ledger directory." : "Secure container-based virtual database storing spreadsheets inside your browser.";
+  const opt1Title = hasDirectoryPicker ? '1. Create New Storage Folder' : '1. Create New Browser Sandbox';
+  const opt1Desc = hasDirectoryPicker ? 'Connect a brand new, empty folder. NovaBill will automatically populate it with empty spreadsheet databases for invoices, customers, and expenses.' : 'Initialize a brand new browser database workspace. Securely stores spreadsheets in your browser container.';
+  const opt2Title = hasDirectoryPicker ? '2. Choose Existing Storage Folder' : '2. Connect Existing Browser Sandbox';
+  const opt2Desc = hasDirectoryPicker ? 'Select a folder where you have previously saved your NovaBill files to resume managing your existing business ledger sheets.' : 'Connect to your existing browser sandbox containing formerly initialized business ledger sheets.';
 
   // Handle building new empty templates into connected workspace (the "Create New" part)
   const handleCreateNewTemplates = async () => {
@@ -392,15 +399,15 @@ export const WorkspaceSync: React.FC = () => {
                 {isIframe ? (
                   <div className="space-y-3">
                     <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1 mb-1">
                         <HelpCircle size={10} /> Iframe Sandbox
                       </p>
-                      <p className="text-[9px] text-zinc-500 leading-normal">
+                      <p className="text-[10px] text-zinc-500 leading-normal">
                         To select physical hard drive folders, open the application in a new tab. However, you can connect to the secure Browser Database Sandbox inside this view right now!
                       </p>
                     </div>
                     <button 
-                      onClick={() => connectWorkspace()}
+                      onClick={() => setShowFolderOptions(true)}
                       className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>{workspaceConnected && !isDrive ? 'Switch Target' : 'Connect Browser Sandbox'}</span>
@@ -409,13 +416,7 @@ export const WorkspaceSync: React.FC = () => {
                   </div>
                 ) : (
                   <button 
-                    onClick={() => {
-                      if (typeof (window as any).showDirectoryPicker === 'function') {
-                        setShowFolderOptions(true);
-                      } else {
-                        connectWorkspace();
-                      }
-                    }}
+                    onClick={() => setShowFolderOptions(true)}
                     className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>{workspaceConnected && !isDrive ? 'Switch Folder' : (typeof (window as any).showDirectoryPicker === 'function' ? 'Connect Folder' : 'Connect Browser Sandbox')}</span>
@@ -658,8 +659,8 @@ export const WorkspaceSync: React.FC = () => {
 
               <div className="space-y-1">
                 <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Workspace Connection</p>
-                <h3 className="text-lg font-extrabold text-white">Select Folder Type</h3>
-                <p className="text-[11px] text-zinc-400">Choose how you'd like to link your local hard-drive ledger directory.</p>
+                <h3 className="text-lg font-extrabold text-white">{popupTitle}</h3>
+                <p className="text-[11px] text-zinc-400">{popupSub}</p>
               </div>
 
               <div className="space-y-4">
@@ -675,9 +676,9 @@ export const WorkspaceSync: React.FC = () => {
                     <FolderPlus size={18} />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold text-white group-hover:text-primary transition-colors">1. Create New Storage Folder</h4>
+                    <h4 className="text-xs font-bold text-white group-hover:text-primary transition-colors">{opt1Title}</h4>
                     <p className="text-[10px] text-zinc-400 leading-normal">
-                      Connect a brand new, empty folder. NovaBill will automatically populate it with empty spreadsheet databases for invoices, customers, and expenses.
+                      {opt1Desc}
                     </p>
                   </div>
                 </button>
@@ -694,9 +695,9 @@ export const WorkspaceSync: React.FC = () => {
                     <FolderOpen size={18} />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">2. Choose Existing Storage Folder</h4>
+                    <h4 className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{opt2Title}</h4>
                     <p className="text-[10px] text-zinc-400 leading-normal">
-                      Select a folder where you have previously saved your NovaBill files to resume managing your existing business ledger sheets.
+                      {opt2Desc}
                     </p>
                   </div>
                 </button>

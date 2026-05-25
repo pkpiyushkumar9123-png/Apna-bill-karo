@@ -189,7 +189,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (mode === 'new') {
         const type = localStorage.getItem('novabill_workspace_type');
-        if (type === 'local') {
+        if (type === 'local' || type === 'virtual') {
           await Promise.all([
             WorkspaceService.syncData('invoices', get().invoices),
             WorkspaceService.syncData('customers', get().customers),

@@ -136,7 +136,7 @@ export const Analytics: React.FC = () => {
             </div>
             <div className="flex-1 space-y-4 w-full">
                {customerData.map((entry, index) => (
-                 <div key={entry.name} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+                 <div key={`${entry.name}-${index}`} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-3">
                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                        <span className="text-sm font-medium">{entry.name}</span>

@@ -183,7 +183,7 @@ export const Reports: React.FC = () => {
           </div>
           <div className="space-y-2 max-h-[140px] overflow-y-auto custom-scrollbar">
             {accountingData.monthlyTrends.slice(0, 4).map((entry, i) => (
-              <div key={entry.name} className="flex items-center justify-between text-xs">
+              <div key={`${entry.name}-${i}`} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
                   <span className="text-xs text-[#A1A1AA] font-medium">{entry.name} Operations</span>

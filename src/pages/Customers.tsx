@@ -205,8 +205,8 @@ export const Customers: React.FC = () => {
 
                 <div className="px-8 py-6 bg-white/[0.03] border-t border-white/5 flex items-center justify-between">
                   <div className="flex flex-wrap gap-1">
-                    {customer.tags?.map(t => (
-                      <span key={t} className="px-2 py-1 bg-primary/10 text-primary text-[8px] font-black uppercase rounded-lg border border-primary/10">{t}</span>
+                    {customer.tags?.map((t, idx) => (
+                      <span key={`${t}-${idx}`} className="px-2 py-1 bg-primary/10 text-primary text-[8px] font-black uppercase rounded-lg border border-primary/10">{t}</span>
                     ))}
                   </div>
                   <div className="text-[8px] font-black text-muted uppercase tracking-[0.2em] flex items-center gap-2">

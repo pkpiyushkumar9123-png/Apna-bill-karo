@@ -473,7 +473,7 @@ export const Dashboard: React.FC = () => {
               {/* Dynamic Categories Table Legend */}
               <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-1 ml-4 overflow-y-auto max-h-[70px] custom-scrollbar">
                 {topCategories.map((category, idx) => (
-                  <div key={category.name} className="flex items-center justify-between text-[10px] font-medium leading-none">
+                  <div key={`${category.name}-${idx}`} className="flex items-center justify-between text-[10px] font-medium leading-none">
                     <span className="flex items-center gap-1.5 truncate text-[#A1A1AA]">
                       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: categoryColors[idx % categoryColors.length] }} />
                       <span className="truncate">{category.name}</span>
