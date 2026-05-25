@@ -288,7 +288,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* Dynamic Page Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 md:pb-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-6">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -298,32 +298,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {children}
           </motion.div>
         </div>
-
-        {/* Floating Dock style Bottom Navigation Bar for Mobile Tab-Navigation */}
-        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50 bg-[#111214]/90 backdrop-blur-md rounded-xl border border-white/5 p-2 flex items-center justify-around shadow-lg">
-          <MobileTab to="/dashboard" icon={<LayoutDashboard size={18} />} label="Overview" />
-          <MobileTab to="/invoices" icon={<FileText size={18} />} label="Invoices animate-none" />
-          <MobileTab to="/reports" icon={<BarChart3 size={18} />} label="Analytics" />
-          <MobileTab to="/expenses" icon={<Wallet size={18} />} label="Operations" />
-          <MobileTab to="/settings" icon={<Settings size={18} />} label="More" />
-        </div>
       </main>
     </div>
   );
 };
-
-const MobileTab = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) => (
-  <NavLink 
-    to={to} 
-    className={({ isActive }) => `
-      flex flex-col items-center gap-0.5 p-1 rounded-lg transition-colors
-      ${isActive ? 'text-[#FF4D57]' : 'text-[#A1A1AA] hover:text-white'}
-    `}
-  >
-    {icon}
-    <span className="text-[8px] font-semibold uppercase tracking-wider">{label.split(' ')[0]}</span>
-  </NavLink>
-);
 
 const NavItem = ({ to, icon, label, collapsed }: { to: string; icon: React.ReactNode; label: string; collapsed?: boolean }) => (
   <NavLink
