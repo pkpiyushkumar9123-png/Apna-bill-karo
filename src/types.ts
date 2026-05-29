@@ -56,6 +56,7 @@ export interface Product {
   stockLevel: number;
   minStockLevel: number;
   costPrice?: number;
+  hsnSac?: string;
 }
 
 export interface InvoiceItem {
@@ -66,6 +67,7 @@ export interface InvoiceItem {
   price: number;
   taxRate: number;
   discount: number;
+  hsnSac?: string;
 }
 
 export interface Invoice {
@@ -100,6 +102,10 @@ export interface Invoice {
   showTaxId?: boolean;
   showSignature?: boolean;
   showBankDetails?: boolean;
+  exchangeRate?: number;
+  taxPreset?: 'generic' | 'india_gst' | 'eu_vat';
+  gstType?: 'cgst_sgst' | 'igst';
+  isReverseCharge?: boolean;
 }
 
 export interface Expense {

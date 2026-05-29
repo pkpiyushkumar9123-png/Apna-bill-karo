@@ -61,6 +61,12 @@ interface AppState {
   
   // Settings Actions
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
+
+  // Forex Actions
+  exchangeRates: Record<string, number>;
+  lastRatesUpdate: number | null;
+  fetchExchangeRates: (baseCurrency?: string) => Promise<void>;
+  updateManualRate: (currency: string, rate: number) => void;
 }
 
 const getLocalStorageItem = <T>(key: string, defaultValue: T): T => {
@@ -91,6 +97,8 @@ export const useStore = create<AppState>((originalSet, get) => {
     saveToLocalStorage('novabill_local_expenses', updated.expenses || []);
     if (updated.profile) saveToLocalStorage('novabill_local_profile', updated.profile);
     saveToLocalStorage('novabill_local_settings', updated.settings);
+    saveToLocalStorage('novabill_local_exchange_rates', updated.exchangeRates || {});
+    saveToLocalStorage('novabill_local_last_rates_update', updated.lastRatesUpdate);
   };
 
   const initialInvoices = getLocalStorageItem<Invoice[]>('novabill_local_invoices', []);
@@ -107,6 +115,19 @@ export const useStore = create<AppState>((originalSet, get) => {
     autoBackup: true,
   });
 
+  const initialExchangeRates = getLocalStorageItem<Record<string, number>>('novabill_local_exchange_rates', {
+    USD: 83.3,
+    EUR: 90.1,
+    GBP: 105.4,
+    CAD: 61.2,
+    AUD: 55.4,
+    AED: 22.7,
+    SGD: 61.5,
+    JPY: 0.53,
+    INR: 1.0,
+  });
+  const initialLastRatesUpdate = getLocalStorageItem<number | null>('novabill_local_last_rates_update', null);
+
   return {
     invoices: initialInvoices,
     customers: initialCustomers,
@@ -114,6 +135,8 @@ export const useStore = create<AppState>((originalSet, get) => {
     expenses: initialExpenses,
     profile: initialProfile,
     settings: initialSettings,
+    exchangeRates: initialExchangeRates,
+    lastRatesUpdate: initialLastRatesUpdate,
     isLoading: true,
     isSaving: false,
     workspaceConnected: false,
@@ -657,6 +680,37 @@ export const useStore = create<AppState>((originalSet, get) => {
       await get().postSync();
     }
     set({ isSaving: false });
+  },
+
+  fetchExchangeRates: async (baseCurrency) => {
+    const base = baseCurrency || get().settings.currencyDefault || get().profile?.currency || 'INR';
+    try {
+      const response = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+      if (!response.ok) throw new Error('Forex API network error');
+      const data = await response.json();
+      if (data && data.rates) {
+        const parsedRates: Record<string, number> = {};
+        Object.keys(data.rates).forEach((curr) => {
+          const val = data.rates[curr];
+          if (curr === base) {
+            parsedRates[curr] = 1.0;
+          } else {
+            parsedRates[curr] = Number((1 / val).toFixed(4));
+          }
+        });
+        set({
+          exchangeRates: { ...get().exchangeRates, ...parsedRates, [base]: 1.0 },
+          lastRatesUpdate: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to fetch online exchange rates, using cache:', err);
+    }
+  },
+
+  updateManualRate: (currency: string, rate: number) => {
+    const updatedRates = { ...get().exchangeRates, [currency]: rate };
+    set({ exchangeRates: updatedRates });
   },
   };
 });

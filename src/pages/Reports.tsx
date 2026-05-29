@@ -42,7 +42,150 @@ import {
 
 export const Reports: React.FC = () => {
   const { invoices, expenses, profile } = useStore();
-  const [activeTab, setActiveTab] = useState<'actuals' | 'sandbox'>('actuals');
+  const settings = useStore((s: any) => s.settings) || { currencyDefault: 'INR' };
+  const [activeTab, setActiveTab] = useState<'actuals' | 'sandbox' | 'tax_estimator'>('actuals');
+
+  const [taxYear, setTaxYear] = useState<'2025-26' | '2024-25'>('2025-26');
+  const [taxInterval, setTaxInterval] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4' | 'annual'>('annual');
+
+  // Dynamic Tax Filing Estimator Sheet Calculations
+  const taxEstimates = useMemo(() => {
+    const baseYear = taxYear === '2025-26' ? 2025 : 2024;
+    let startDate = new Date(baseYear, 3, 1).getTime(); // April 1st
+    let endDate = new Date(baseYear + 1, 2, 31, 23, 59, 59).getTime(); // March 31st
+
+    if (taxInterval === 'Q1') {
+      startDate = new Date(baseYear, 3, 1).getTime(); // April 1
+      endDate = new Date(baseYear, 5, 30, 23, 59, 59).getTime(); // June 30
+    } else if (taxInterval === 'Q2') {
+      startDate = new Date(baseYear, 6, 1).getTime(); // July 1
+      endDate = new Date(baseYear, 8, 30, 23, 59, 59).getTime(); // Sep 30
+    } else if (taxInterval === 'Q3') {
+      startDate = new Date(baseYear, 9, 1).getTime(); // Oct 1
+      endDate = new Date(baseYear, 11, 31, 23, 59, 59).getTime(); // Dec 31
+    } else if (taxInterval === 'Q4') {
+      startDate = new Date(baseYear + 1, 0, 1).getTime(); // Jan 1
+      endDate = new Date(baseYear + 1, 2, 31, 23, 59, 59).getTime(); // March 31
+    }
+
+    const filteredInvoices = invoices.filter(i => i.date >= startDate && i.date <= endDate);
+    const filteredExpenses = expenses.filter(e => e.date >= startDate && e.date <= endDate);
+
+    let grossSalesTaxable = 0;
+    let taxOutputGSTCollected = 0;
+    let taxOutputCGSTCollected = 0;
+    let taxOutputSGSTCollected = 0;
+    let taxOutputIGSTCollected = 0;
+    let reverseChargeSalesCollected = 0;
+
+    filteredInvoices.forEach(i => {
+      const rate = i.exchangeRate || 1.0;
+      const subtotalConverted = (i.subtotal || 0) * rate;
+      const taxConverted = (i.taxTotal || 0) * rate;
+
+      grossSalesTaxable += subtotalConverted;
+      
+      // Only append tax totals if reverse charge was not selected
+      const isReverse = i.taxPreset === 'eu_vat' && i.isReverseCharge;
+      if (!isReverse) {
+         taxOutputGSTCollected += taxConverted;
+      }
+
+      if (i.taxPreset === 'india_gst') {
+        if (i.gstType === 'cgst_sgst') {
+          taxOutputCGSTCollected += taxConverted / 2;
+          taxOutputSGSTCollected += taxConverted / 2;
+        } else {
+          taxOutputIGSTCollected += taxConverted;
+        }
+      } else if (isReverse) {
+        reverseChargeSalesCollected += subtotalConverted;
+      }
+    });
+
+    let grossExpensesDeductible = 0;
+    let expTaxITCClaimable = 0;
+
+    filteredExpenses.forEach(e => {
+      grossExpensesDeductible += e.amount;
+      // GST estimation on services is standard 18% inclusive
+      const estTax = e.amount * (0.18 / 1.18); 
+      expTaxITCClaimable += estTax;
+    });
+
+    const netSalesSurplus = grossSalesTaxable - grossExpensesDeductible;
+    const netGstPayableLiability = Math.max(0, taxOutputGSTCollected - expTaxITCClaimable);
+
+    const baseIncomeTaxRate = 0.25; 
+    const baseEstimatedIncomeTax = netSalesSurplus > 0 ? netSalesSurplus * baseIncomeTaxRate : 0;
+    const totalFilingLiability = netGstPayableLiability + baseEstimatedIncomeTax;
+
+    return {
+      grossSalesTaxable,
+      taxOutputGSTCollected,
+      taxOutputCGSTCollected,
+      taxOutputSGSTCollected,
+      taxOutputIGSTCollected,
+      reverseChargeSalesCollected,
+      grossExpensesDeductible,
+      expTaxITCClaimable,
+      netSalesSurplus,
+      netGstPayableLiability,
+      baseEstimatedIncomeTax,
+      totalFilingLiability,
+      invoicesCount: filteredInvoices.length,
+      expensesCount: filteredExpenses.length
+    };
+  }, [invoices, expenses, taxYear, taxInterval]);
+
+  const downloadTaxCSV = () => {
+    const data = taxEstimates;
+    const currency = settings?.currencyDefault || profile?.currency || 'INR';
+
+    const csvRows = [
+      ["NovaBill Compliance Accounts Engine — Dynamic Tax Summary Sheet"],
+      ["Report Parameters"],
+      ["Tax Assessment Year", taxYear],
+      ["Reporting Interval", taxInterval],
+      ["Default Settlement Base Currency", currency],
+      [""],
+      ["I. OUTWARD SUPPLIES & TAX COLLECTED (SALES)"],
+      ["Line Item Category", "Metric Amount", "Description"],
+      ["Total Gross Invoiced Revenue (Taxable Sales)", data.grossSalesTaxable.toFixed(2), "Converted aggregate business output sales"],
+      ["Total Output Gst/Vat Collected", data.taxOutputGSTCollected.toFixed(2), "Sum of all tax collected, reverse charge excluded"],
+      ["Central GST Amount (CGST - splitting)", data.taxOutputCGSTCollected.toFixed(2), "50% split for domestic intrastate transactions"],
+      ["State GST Amount (SGST - splitting)", data.taxOutputSGSTCollected.toFixed(2), "50% split for domestic intrastate transactions"],
+      ["Integrated GST Amount (IGST Consolidated)", data.taxOutputIGSTCollected.toFixed(2), "Consolidated IGST on interstate out-of-region sales (100%)"],
+      ["Reverse-Charge EU VAT Trade Volume", data.reverseChargeSalesCollected.toFixed(2), "Zeroed transactions for foreign B2B clients (reverse charge applied)"],
+      ["Total Invoice Count Represented", data.invoicesCount, "Num outward trades"],
+      [""],
+      ["II. DEDUCTIBLE OPERATIONAL COSTS & CREDIT (EXPENSES)"],
+      ["Line Item Category", "Metric Amount", "Description"],
+      ["Gross Operational Costs (Expenses Written)", data.grossExpensesDeductible.toFixed(2), "Total operational bills registered in corporate workspace"],
+      ["Estimated Input Tax Credits (ITC Claimable)", data.expTaxITCClaimable.toFixed(2), "Estimated 18% standard compliance ITC off eligible workspace costs"],
+      ["Total Expense Slips Tracked", data.expensesCount, "Num inward expenses"],
+      [""],
+      ["III. SUMMARY TAX ASSESSMENT ANALYSIS"],
+      ["Metric Description", "Metric Value", "Accrued Notes"],
+      ["Corporate EBITDA (Net Sales Surplus)", data.netSalesSurplus.toFixed(2), "Gross Taxable Profits (Gross Sales - Deductible Costs)"],
+      ["Net GST/VAT Settlement Liability", data.netGstPayableLiability.toFixed(2), "Net Indirect Taxes Payable (Output GST Collected - Expenses ITC Credits)"],
+      ["Estimated Corporate Income Tax (25% rate)", data.baseEstimatedIncomeTax.toFixed(2), "Evaluated corporate assessment income tax projections"],
+      ["TOTAL ACCRUED PROVISION LIABILITIES PAYABLE", data.totalFilingLiability.toFixed(2), "Consolidated indirect indirect + direct accounting provision payable"],
+      [""],
+      ["DISCLAIMER: NovaBill compiled reports are provisions for informational purposes. Deliver directly to your professional accountant for validation."]
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `tax-sheet-summary-fy${taxYear}-${taxInterval}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Slider State for Idea 3: Strategic Forecast Scenario Sandbox
   const [forecastHorizon, setForecastHorizon] = useState<number>(6); // Months
@@ -173,8 +316,9 @@ export const Reports: React.FC = () => {
         </div>
         
         {/* Double Toggle Tabs */}
-        <div className="flex bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-xs shrink-0 self-stretch sm:self-auto justify-center">
+        <div className="flex flex-wrap bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-xs shrink-0 self-stretch sm:self-auto justify-center gap-1">
           <button 
+            type="button"
             onClick={() => setActiveTab('actuals')}
             className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'actuals' ? 'bg-[#FF4D57] text-white shadow-lg shadow-red-500/10' : 'text-zinc-400 hover:text-white'
@@ -184,6 +328,7 @@ export const Reports: React.FC = () => {
             <span>Historical Actuals</span>
           </button>
           <button 
+            type="button"
             onClick={() => setActiveTab('sandbox')}
             className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'sandbox' ? 'bg-gradient-to-r from-[#FF4D57] to-pink-500 text-white shadow-lg shadow-pink-500/10' : 'text-zinc-400 hover:text-white'
@@ -191,6 +336,16 @@ export const Reports: React.FC = () => {
           >
             <Sparkles size={14} className={activeTab === 'sandbox' ? 'animate-pulse' : ''} />
             <span>Scenario Projections Sandbox</span>
+          </button>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('tax_estimator')}
+            className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'tax_estimator' ? 'bg-[#FF4D57] text-white shadow-lg shadow-red-500/10' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <FileSpreadsheet size={15} />
+            <span>Tax Estimator Sheets</span>
           </button>
         </div>
       </div>
@@ -346,7 +501,7 @@ export const Reports: React.FC = () => {
               </div>
             </div>
           </motion.div>
-        ) : (
+        ) : activeTab === 'sandbox' ? (
           <motion.div
             key="sandbox"
             initial={{ opacity: 0, y: 15 }}
@@ -632,6 +787,256 @@ export const Reports: React.FC = () => {
               </div>
             </div>
 
+          </motion.div>
+        ) : (
+          <motion.div
+            key="tax_estimator"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-6"
+          >
+            {/* Header parameters selector */}
+            <div className="p-5 bg-gradient-to-r from-red-500/10 via-pink-500/5 to-transparent border border-white/5 rounded-3xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-500/10 to-pink-500/10 border border-white/10 flex items-center justify-center text-primary" style={{ color: '#FF4D57' }}>
+                  <FileSpreadsheet size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Dynamic Tax Filing Estimator Sheet</h3>
+                  <p className="text-xs text-[#A1A1AA] max-w-xl mt-0.5 leading-normal">
+                    Aggregate raw multi-currency sales, local domestic splits, reverse-charges, and cost deductions into compliant quarterly or annual filing provisions.
+                  </p>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <div className="flex bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-[11px]">
+                  {(['2025-26', '2024-25'] as const).map(y => (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => setTaxYear(y)}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${
+                        taxYear === y ? 'bg-[#FF4D57] text-white' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      FY {y}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-[11px]">
+                  {(['annual', 'Q1', 'Q2', 'Q3', 'Q4'] as const).map(q => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setTaxInterval(q)}
+                      className={`px-3 py-1.5 rounded-lg transition-all uppercase ${
+                        taxInterval === q ? 'bg-[#FF4D57] text-white' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {q === 'annual' ? 'Full Year' : q}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={downloadTaxCSV}
+                  className="bg-white hover:bg-zinc-100 text-black px-4 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-2 hover:scale-[1.02] transition-all cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Export Accountant Sheet</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Financial Summary KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+               <StatsCard
+                 label="Aggregate Gross Taxable Sales"
+                 value={`${settings?.currencyDefault || profile?.currency || 'INR'} ${taxEstimates.grossSalesTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                 trend={`${taxEstimates.invoicesCount} Invoices represented`}
+                 positive={true}
+                 icon={<Coins size={16} />}
+               />
+               <StatsCard
+                 label="Total Deductible Expenses"
+                 value={`${settings?.currencyDefault || profile?.currency || 'INR'} ${taxEstimates.grossExpensesDeductible.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                 trend={`${taxEstimates.expensesCount} Operational Cost Slips`}
+                 positive={false}
+                 icon={<TrendingDown size={16} />}
+               />
+               <StatsCard
+                 label="Net Taxable EBITDA Surplus"
+                 value={`${settings?.currencyDefault || profile?.currency || 'INR'} ${taxEstimates.netSalesSurplus.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                 trend="Subject to Corporate Assessments"
+                 positive={taxEstimates.netSalesSurplus >= 0}
+                 icon={<BarChart3 size={16} />}
+               />
+               <StatsCard
+                 label="EST. TOTAL PROVISIONAL PAYABLE"
+                 value={`${settings?.currencyDefault || profile?.currency || 'INR'} ${taxEstimates.totalFilingLiability.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                 trend="Indirect + Direct Tax Provision"
+                 positive={false}
+                 icon={<Target size={16} />}
+               />
+            </div>
+
+            {/* Structured Accounting Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch w-full">
+              
+              {/* Outward Trading Revenue Liabilities Ledger (Sales) */}
+              <div className="bg-[#111214] border border-white/5 rounded-3xl p-6 space-y-6 flex flex-col justify-between">
+                <div>
+                   <div className="flex items-center justify-between border-b border-white/5 pb-3.5">
+                      <h4 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                         <Coins className="text-[#10B981]" size={16} />
+                         <span>I. Outward Output Supplies Accounts (Sales)</span>
+                      </h4>
+                      <span className="text-[10px] bg-emerald-400/10 border border-emerald-500/20 text-emerald-400 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                         {taxEstimates.invoicesCount} Trades File
+                      </span>
+                   </div>
+
+                   <p className="text-zinc-400 text-xs mt-3 leading-normal">
+                      Summary list of sales receivables, output GST collected, CGST/SGST intrastate splits, and reverse charge tax exemption volumes converted into settlement currency.
+                   </p>
+
+                   <div className="space-y-4 mt-6">
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5">
+                         <span className="text-zinc-500">Gross Taxable Outward Sales Volume</span>
+                         <span className="font-mono font-bold text-white">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.grossSalesTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-4 border-l-2 border-emerald-500/20">
+                         <span className="text-zinc-500">Output GST / VAT Collected (Aggregate)</span>
+                         <span className="font-mono font-bold text-white">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.taxOutputGSTCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-8 border-l-2 border-emerald-500/10">
+                         <span className="text-zinc-500">Domestic CGST Central Split (50%)</span>
+                         <span className="font-mono font-bold text-zinc-400">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.taxOutputCGSTCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-8 border-l-2 border-emerald-500/10">
+                         <span className="text-zinc-500">Domestic SGST State Split (50%)</span>
+                         <span className="font-mono font-bold text-zinc-400">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.taxOutputSGSTCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-8 border-l-2 border-emerald-500/10">
+                         <span className="text-zinc-500">Consolidated Domestic IGST (100%)</span>
+                         <span className="font-mono font-bold text-zinc-400">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.taxOutputIGSTCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-4 border-l-2 border-green-500/20">
+                         <span className="text-zinc-500">Reverse-Charge EU VAT Exclusions</span>
+                         <span className="font-mono font-bold text-green-400">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.reverseChargeSalesCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/5 text-[10px] text-[#A1A1AA] flex items-center gap-2 bg-emerald-950/20 -mx-6 -mb-6 p-4 rounded-b-3xl mt-6">
+                   <HelpCircle className="text-emerald-400" size={14} />
+                   <span>Reverse charges and multi-currency exchange adjustments are automatically incorporated according to international accounting parameters.</span>
+                </div>
+              </div>
+
+              {/* Deductible Operational Costs Ledger (Inward Expenses) */}
+              <div className="bg-[#111214] border border-white/5 rounded-3xl p-6 space-y-6 flex flex-col justify-between">
+                <div>
+                   <div className="flex items-center justify-between border-b border-white/5 pb-3.5">
+                      <h4 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                         <TrendingDown className="text-rose-400" size={16} />
+                         <span>II. Deductible Operating Costs Ledger (Expenses)</span>
+                      </h4>
+                      <span className="text-[10px] bg-rose-400/10 border border-rose-500/20 text-rose-400 font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                         {taxEstimates.expensesCount} Slips
+                      </span>
+                   </div>
+
+                   <p className="text-zinc-400 text-xs mt-3 leading-normal">
+                      Aggregate operational bills and estimated claimable Input Tax Credits (ITC, standard 18% inclusive approximation) serving as offsets against outstanding output tax liabilities.
+                   </p>
+
+                   <div className="space-y-4 mt-6">
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5">
+                         <span className="text-zinc-500">Gross Deductible Operating Expenses</span>
+                         <span className="font-mono font-bold text-white">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.grossExpensesDeductible.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-4 border-l-2 border-rose-500/20">
+                         <span className="text-zinc-500">Estimated Input Tax Credits (ITC Claimable)</span>
+                         <span className="font-mono font-bold text-rose-400">
+                            {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.expTaxITCClaimable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                         </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-2 border-b border-white/5 pl-4 border-l-2 border-yellow-500/20">
+                         <span className="text-zinc-500">Average Standard Indirect Cost Offset Ratio</span>
+                         <span className="font-mono font-bold text-yellow-400">
+                            18% Consolidated
+                         </span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/5 text-[10px] text-[#A1A1AA] flex items-center gap-2 bg-rose-950/20 -mx-6 -mb-6 p-4 rounded-b-3xl mt-6">
+                   <HelpCircle className="text-rose-400" size={14} />
+                   <span>Registering operational invoices inside expenses is necessary to dynamically offset taxable outward supplies and lower net annual corporate payouts.</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Consolidated Taxes Settlement Breakdown Summary Section */}
+            <div className="p-6 rounded-3xl bg-[#111214] border border-white/5 space-y-6">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-2.5">
+                <Target size={14} className="text-red-400" />
+                <span>III. Consolidated Regulatory Tax Settlement Summary Estimate</span>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-2">
+                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-sans">A. Net Indirect Settlement Liability</h4>
+                   <p className="text-sm text-[#A1A1AA] leading-normal text-left">
+                      Outstanding output GST/VAT collected from global billing minus operational input tax credit (ITC) offsets:
+                   </p>
+                   <p className="pt-2 text-lg font-bold text-white font-mono leading-none">
+                      {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.netGstPayableLiability.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-2">
+                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-sans">B. Estimated Corporate Income Tax</h4>
+                   <p className="text-sm text-[#A1A1AA] leading-normal text-left">
+                      Provision assessed for income tax computed at standard 25% corporate bracket on net operational profit margin (EBITDA surplus):
+                   </p>
+                   <p className="pt-2 text-lg font-bold text-white font-mono leading-none">
+                      {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.baseEstimatedIncomeTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-2">
+                   <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-sans">C. Consolidated Provisioning Balance Due</h4>
+                   <p className="text-sm text-[#A1A1AA] leading-normal text-left">
+                      Final unified provision representing both local indirect VAT obligations and estimated direct income taxes accrued for fiscal accountants:
+                   </p>
+                   <p className="pt-2 text-lg font-bold text-primary font-mono leading-none" style={{ color: '#FF4D57' }}>
+                      {settings?.currencyDefault || profile?.currency || 'INR'} {taxEstimates.totalFilingLiability.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   </p>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

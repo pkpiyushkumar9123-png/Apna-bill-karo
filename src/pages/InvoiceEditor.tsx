@@ -43,6 +43,7 @@ const itemSchema = z.object({
   price: z.number().min(0),
   taxRate: z.number().min(0).max(100),
   discount: z.number().min(0).max(100),
+  hsnSac: z.string().optional(),
 });
 
 const invoiceSchema = z.object({
@@ -61,6 +62,11 @@ const invoiceSchema = z.object({
   showTaxId: z.boolean().optional(),
   showSignature: z.boolean().optional(),
   showBankDetails: z.boolean().optional(),
+  currency: z.string().optional(),
+  exchangeRate: z.number().optional(),
+  taxPreset: z.enum(['generic', 'india_gst', 'eu_vat']).optional(),
+  gstType: z.enum(['cgst_sgst', 'igst']).optional(),
+  isReverseCharge: z.boolean().optional(),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -68,7 +74,20 @@ type InvoiceFormData = z.infer<typeof invoiceSchema>;
 export const InvoiceEditor: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, customers, products, profile, settings, addInvoice, updateInvoice, addCustomer, addProduct } = useStore();
+  const { 
+    invoices, 
+    customers, 
+    products, 
+    profile, 
+    settings, 
+    exchangeRates, 
+    lastRatesUpdate, 
+    fetchExchangeRates, 
+    addInvoice, 
+    updateInvoice, 
+    addCustomer, 
+    addProduct 
+  } = useStore();
   const [isPreview, setIsPreview] = useState(false);
   const [showQuickCustomer, setShowQuickCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', companyName: '', address: '' });
@@ -147,12 +166,17 @@ export const InvoiceEditor: React.FC = () => {
       showTaxId: initialInvoice.showTaxId !== undefined ? initialInvoice.showTaxId : (settings.invoiceShowTaxId !== false),
       showSignature: initialInvoice.showSignature !== undefined ? initialInvoice.showSignature : (settings.invoiceShowSignature !== false),
       showBankDetails: initialInvoice.showBankDetails !== undefined ? initialInvoice.showBankDetails : (settings.invoiceShowBankDetails !== false),
+      currency: initialInvoice.currency || settings.currencyDefault || profile?.currency || 'INR',
+      exchangeRate: initialInvoice.exchangeRate || 1.0,
+      taxPreset: initialInvoice.taxPreset || 'generic',
+      gstType: initialInvoice.gstType || 'cgst_sgst',
+      isReverseCharge: initialInvoice.isReverseCharge || false,
     } : {
       number: `INV-${Date.now().toString().slice(-6)}`,
       date: Date.now(),
       dueDate: Date.now() + 86400000 * 7,
       customerId: '',
-      items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0 }],
+      items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0, hsnSac: '' }],
       notes: '',
       terms: '',
       category: '',
@@ -163,6 +187,11 @@ export const InvoiceEditor: React.FC = () => {
       showTaxId: settings.invoiceShowTaxId !== false,
       showSignature: settings.invoiceShowSignature !== false,
       showBankDetails: settings.invoiceShowBankDetails !== false,
+      currency: settings.currencyDefault || profile?.currency || 'INR',
+      exchangeRate: 1.0,
+      taxPreset: 'generic',
+      gstType: 'cgst_sgst',
+      isReverseCharge: false,
     }
   });
 
@@ -184,6 +213,11 @@ export const InvoiceEditor: React.FC = () => {
         showTaxId: initialInvoice.showTaxId !== undefined ? initialInvoice.showTaxId : (settings.invoiceShowTaxId !== false),
         showSignature: initialInvoice.showSignature !== undefined ? initialInvoice.showSignature : (settings.invoiceShowSignature !== false),
         showBankDetails: initialInvoice.showBankDetails !== undefined ? initialInvoice.showBankDetails : (settings.invoiceShowBankDetails !== false),
+        currency: initialInvoice.currency || settings.currencyDefault || profile?.currency || 'INR',
+        exchangeRate: initialInvoice.exchangeRate || 1.0,
+        taxPreset: initialInvoice.taxPreset || 'generic',
+        gstType: initialInvoice.gstType || 'cgst_sgst',
+        isReverseCharge: initialInvoice.isReverseCharge || false,
       });
     } else if (!id) {
       reset({
@@ -191,7 +225,7 @@ export const InvoiceEditor: React.FC = () => {
         date: Date.now(),
         dueDate: Date.now() + 86400000 * 7,
         customerId: '',
-        items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0 }],
+        items: [{ id: Math.random().toString(36).substr(2, 9), description: '', quantity: 1, price: 0, taxRate: 0, discount: 0, hsnSac: '' }],
         notes: '',
         terms: '',
         category: '',
@@ -202,6 +236,11 @@ export const InvoiceEditor: React.FC = () => {
         showTaxId: settings.invoiceShowTaxId !== false,
         showSignature: settings.invoiceShowSignature !== false,
         showBankDetails: settings.invoiceShowBankDetails !== false,
+        currency: settings.currencyDefault || profile?.currency || 'INR',
+        exchangeRate: 1.0,
+        taxPreset: 'generic',
+        gstType: 'cgst_sgst',
+        isReverseCharge: false,
       });
     }
   }, [id, initialInvoice, reset, settings]);
@@ -228,6 +267,9 @@ export const InvoiceEditor: React.FC = () => {
       return { subtotal: 0, taxTotal: 0, discountTotal: 0, total: 0 };
     }
 
+    const currentTaxPreset = watch('taxPreset') || 'generic';
+    const currentIsReverseCharge = !!watch('isReverseCharge');
+
     const calculated = watchedItems.reduce((acc, item) => {
       const qty = parseFloat(String(item?.quantity)) || 0;
       const price = parseFloat(String(item?.price)) || 0;
@@ -237,7 +279,10 @@ export const InvoiceEditor: React.FC = () => {
       const itemSubtotal = qty * price;
       const discountAmount = itemSubtotal * (discount / 100);
       const afterDiscount = Math.max(0, itemSubtotal - discountAmount);
-      const taxAmount = Math.max(0, afterDiscount * (taxRate / 100));
+      
+      // If EU VAT with reverse charge option selected, the taxCollected is zero because the buyer handles it
+      const actualTaxRate = (currentTaxPreset === 'eu_vat' && currentIsReverseCharge) ? 0 : taxRate;
+      const taxAmount = Math.max(0, afterDiscount * (actualTaxRate / 100));
       
       acc.subtotal += itemSubtotal;
       acc.discountTotal += discountAmount;
@@ -252,7 +297,7 @@ export const InvoiceEditor: React.FC = () => {
       discountTotal: isNaN(calculated.discountTotal) ? 0 : Math.max(0, calculated.discountTotal),
       total: isNaN(calculated.total) ? 0 : Math.max(0, calculated.total)
     };
-  }, [watchedItems]);
+  }, [watchedItems, watch('taxPreset'), watch('isReverseCharge')]);
 
   // Dynamically generate the QR Code when invoice details or payment type changes
   useEffect(() => {
@@ -324,7 +369,11 @@ export const InvoiceEditor: React.FC = () => {
         showTaxId: data.showTaxId,
         showSignature: data.showSignature,
         showBankDetails: data.showBankDetails,
-        currency: profile?.currency || 'USD',
+        currency: data.currency || profile?.currency || 'INR',
+        exchangeRate: Number(data.exchangeRate) || 1.0,
+        taxPreset: data.taxPreset || 'generic',
+        gstType: data.gstType || 'cgst_sgst',
+        isReverseCharge: !!data.isReverseCharge,
         createdAt: initialInvoice?.createdAt || Date.now(),
         updatedAt: Date.now(),
       };
@@ -368,7 +417,11 @@ export const InvoiceEditor: React.FC = () => {
       showTaxId: data.showTaxId,
       showSignature: data.showSignature,
       showBankDetails: data.showBankDetails,
-      currency: profile?.currency || 'USD',
+      currency: data.currency || profile?.currency || 'INR',
+      exchangeRate: Number(data.exchangeRate) || 1.0,
+      taxPreset: data.taxPreset || 'generic',
+      gstType: data.gstType || 'cgst_sgst',
+      isReverseCharge: !!data.isReverseCharge,
       createdAt: initialInvoice?.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
@@ -383,6 +436,25 @@ export const InvoiceEditor: React.FC = () => {
       'Space Grotesk': '"Space Grotesk", sans-serif',
       'Playfair Display': '"Playfair Display", serif',
       'JetBrains Mono': '"JetBrains Mono", monospace',
+    };
+
+    const curCode = watch('currency') || 'INR';
+    const rateVal = parseFloat(String(watch('exchangeRate') || 1.0)) || 1.0;
+
+    const formatCurrency = (val: number, code: string = curCode) => {
+      const symbols: Record<string, string> = {
+        'INR': '₹',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'CAD': 'C$',
+        'AUD': 'A$',
+        'AED': 'AED ',
+        'SGD': 'S$',
+        'JPY': '¥',
+      };
+      const sym = symbols[code] || '$';
+      return `${sym}${val.toFixed(2)}`;
     };
 
     const selTemplate = watch('templateId') || 'modern';
@@ -499,23 +571,35 @@ export const InvoiceEditor: React.FC = () => {
                     const sub = q * p;
                     const discAmt = sub * (d / 100);
                     const afterDisc = sub - discAmt;
-                    const taxAmt = afterDisc * (t / 100);
+                    
+                    const currentTaxPreset = watch('taxPreset') || 'generic';
+                    const currentIsReverseCharge = !!watch('isReverseCharge');
+                    const actualTaxRate = (currentTaxPreset === 'eu_vat' && currentIsReverseCharge) ? 0 : t;
+                    
+                    const taxAmt = afterDisc * (actualTaxRate / 100);
                     const lineTotal = afterDisc + taxAmt;
   
                     return (
-                      <tr key={idx}>
+                      <tr key={idx} className="border-b border-gray-100">
                          <td className="py-5">
                             <p className="font-bold text-gray-900">{item.description || 'Service Description'}</p>
-                            {(t > 0 || d > 0) && (
-                              <p className="text-[9px] text-gray-400 font-medium uppercase tracking-tighter">
-                                 {t > 0 && `Tax: ${t}% `}
-                                 {d > 0 && `Disc: ${d}%`}
-                              </p>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                               {item.hsnSac && (
+                                 <span className="text-[8px] bg-gray-100 font-mono text-gray-600 px-1.5 py-0.5 rounded font-bold uppercase">
+                                   HSN/SAC: {item.hsnSac}
+                                 </span>
+                               )}
+                               {(t > 0 || d > 0) && (
+                                 <span className="text-[8px] text-gray-400 font-medium uppercase tracking-tighter">
+                                    {t > 0 && `Tax: ${t}% `}
+                                    {d > 0 && `Disc: ${d}%`}
+                                 </span>
+                               )}
+                            </div>
                          </td>
                          <td className="py-5 text-center text-gray-600">{q}</td>
-                         <td className="py-5 text-right font-mono text-gray-600">${p.toFixed(2)}</td>
-                         <td className="py-5 text-right font-bold font-mono text-gray-900">${lineTotal.toFixed(2)}</td>
+                         <td className="py-5 text-right font-mono text-gray-600">{formatCurrency(p)}</td>
+                         <td className="py-5 text-right font-bold font-mono text-gray-900">{formatCurrency(lineTotal)}</td>
                       </tr>
                     );
                   })}
@@ -527,16 +611,64 @@ export const InvoiceEditor: React.FC = () => {
              <div className="w-64 space-y-3">
                 <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
                    <span>Subtotal</span>
-                   <span>${totals.subtotal.toFixed(2)}</span>
+                   <span>{formatCurrency(totals.subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
-                   <span>Tax Total</span>
-                   <span>${totals.taxTotal.toFixed(2)}</span>
-                </div>
+
+                {watch('taxPreset') === 'india_gst' ? (
+                   watch('gstType') === 'cgst_sgst' ? (
+                     <>
+                       <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest pl-2 border-l-2 border-primary/20">
+                          <span>CGST (Central - 50%)</span>
+                          <span>{formatCurrency(totals.taxTotal / 2)}</span>
+                       </div>
+                       <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest pl-2 border-l-2 border-primary/20">
+                          <span>SGST (State - 50%)</span>
+                          <span>{formatCurrency(totals.taxTotal / 2)}</span>
+                       </div>
+                     </>
+                   ) : (
+                     <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                        <span>IGST (Integrated)</span>
+                        <span>{formatCurrency(totals.taxTotal)}</span>
+                     </div>
+                   )
+                ) : watch('taxPreset') === 'eu_vat' && watch('isReverseCharge') ? (
+                   <div className="flex flex-col text-[10px] text-right pl-2 border-l-2 border-green-500/30 text-green-600">
+                      <div className="flex justify-between uppercase font-bold tracking-widest">
+                         <span>Tax Total (Reverse Chg)</span>
+                         <span>{formatCurrency(0)}</span>
+                      </div>
+                      <span className="text-[8px] italic text-gray-400 mt-1 uppercase leading-snug">Buyer liable for EU VAT import tax</span>
+                   </div>
+                ) : (
+                   <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                      <span>Tax Total</span>
+                      <span>{formatCurrency(totals.taxTotal)}</span>
+                   </div>
+                )}
+
+                {totals.discountTotal > 0 && (
+                   <div className="flex justify-between text-[10px] text-green-500 uppercase font-bold tracking-widest font-mono">
+                      <span>Discount Total</span>
+                      <span>-{formatCurrency(totals.discountTotal)}</span>
+                   </div>
+                )}
+
                 <div className="flex justify-between pt-3 border-t border-gray-100 text-xl font-black uppercase">
                    <span>Total</span>
-                   <span style={{ color: selColor }}>${totals.total.toFixed(2)}</span>
+                   <span style={{ color: selColor }}>{formatCurrency(totals.total)}</span>
                 </div>
+
+                {/* Conversion Equivalent to home settlement currency (like INR) */}
+                {curCode !== (settings.currencyDefault || profile?.currency || 'INR') && (
+                   <div className="pt-2 mt-1 border-t border-dashed border-gray-100 text-[9px] text-gray-400 text-right uppercase tracking-wider font-mono">
+                      <span>Exchange Equivalent ({settings.currencyDefault || profile?.currency || 'INR'} Settlement)</span>
+                      <p className="text-gray-600 font-bold mt-1 text-[11px]">
+                         {settings.currencyDefault || profile?.currency || 'INR'} {((totals.total * rateVal).toFixed(2))}
+                      </p>
+                      <p className="text-[7.5px] italic text-gray-400 font-sans tracking-normal mt-0.5">FX rate: 1 {curCode} = {rateVal} {settings.currencyDefault || profile?.currency || 'INR'}</p>
+                   </div>
+                )}
              </div>
           </div>
 
@@ -782,6 +914,135 @@ export const InvoiceEditor: React.FC = () => {
               </div>
             </div>
 
+            {/* Local Compliance FX Pricing Card */}
+            <div className="glass-card grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 !p-10 rounded-[48px]" id="compliance-fx-card">
+              <div className="md:col-span-12 flex items-center gap-4 border-b border-white/5 pb-4 mb-2">
+                 <div className="w-1.5 h-6 bg-primary rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                 <h3 className="text-xs font-black uppercase tracking-[0.3em] text-muted/80">Compliance & Currency Conversion</h3>
+              </div>
+
+              {/* Currency Selector */}
+              <div className="space-y-3 md:col-span-4">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Billing Currency</label>
+                 <div className="relative group">
+                    <select 
+                      {...register('currency')}
+                      onChange={(e) => {
+                        const currencyVal = e.target.value;
+                        setValue('currency', currencyVal);
+                        const rate = exchangeRates[currencyVal] || 1.0;
+                        setValue('exchangeRate', rate);
+                      }}
+                      className="input-field w-full text-xs font-black uppercase tracking-widest bg-white/[0.01] h-14 px-5 appearance-none cursor-pointer"
+                    >
+                      <option value="INR">INR — Indian Rupee</option>
+                      <option value="USD">USD — US Dollar</option>
+                      <option value="EUR">EUR — Euro</option>
+                      <option value="GBP">GBP — British Pound</option>
+                      <option value="CAD">CAD — Canadian Dollar</option>
+                      <option value="AUD">AUD — Australian Dollar</option>
+                      <option value="AED">AED — UAE Dirham</option>
+                      <option value="SGD">SGD — Singapore Dollar</option>
+                      <option value="JPY">JPY — Japanese Yen</option>
+                    </select>
+                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-muted rotate-90" size={16} />
+                 </div>
+              </div>
+
+              {/* Adjust Exchange Rate */}
+              <div className="space-y-3 md:col-span-4">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">
+                    Exchange Rate ({watch('currency') || 'INR'} to Home)
+                 </label>
+                 <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      step="any"
+                      {...register('exchangeRate', { valueAsNumber: true })} 
+                      className="input-field w-full font-mono text-xs tracking-tighter h-14 bg-white/[0.01]" 
+                      placeholder="1.0" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={async () => {
+                        const baseCurr = settings.currencyDefault || 'INR';
+                        await fetchExchangeRates(baseCurr);
+                        const currentSelected = watch('currency') || 'INR';
+                        const freshRate = useStore.getState().exchangeRates[currentSelected] || 1.0;
+                        setValue('exchangeRate', freshRate);
+                      }}
+                      title="Fetch live rates from global API feed and cache locally"
+                      className="h-14 px-4 rounded-2xl bg-white/5 border border-white/10 text-xs font-black text-primary hover:bg-primary/10 transition-colors uppercase tracking-widest"
+                    >
+                      Sync
+                    </button>
+                 </div>
+                 {lastRatesUpdate && (
+                    <p className="text-[9px] text-gray-500 font-mono pl-2">
+                       Rates cached: {format(lastRatesUpdate, 'HH:mm:ss')}
+                    </p>
+                 )}
+              </div>
+
+              {/* TaxationPreset Selection */}
+              <div className="space-y-3 md:col-span-4">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted/50 pl-2">Tax Profile Preset</label>
+                 <div className="relative group p-0">
+                    <select 
+                      {...register('taxPreset')} 
+                      className="input-field w-full text-xs font-black uppercase tracking-widest bg-white/[0.01] h-14 px-5 appearance-none cursor-pointer"
+                    >
+                      <option value="generic">GENERIC (Tax rate only)</option>
+                      <option value="india_gst">INDIA GST presets</option>
+                      <option value="eu_vat">EU VAT rules</option>
+                    </select>
+                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-muted rotate-90" size={16} />
+                 </div>
+              </div>
+
+              {/* Conditional Dual Indian GST options */}
+              {watch('taxPreset') === 'india_gst' && (
+                 <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black uppercase text-primary tracking-widest pl-1">GST Transaction Mode</label>
+                       <select 
+                         {...register('gstType')} 
+                         className="input-field w-full py-4 h-14 text-xs font-black bg-background/50 appearance-none uppercase"
+                       >
+                         <option value="cgst_sgst">Intra-State (CGST + SGST splitting)</option>
+                         <option value="igst">Inter-State (Consolidated IGST)</option>
+                       </select>
+                    </div>
+                    <div className="flex flex-col justify-center pl-2">
+                       <p className="text-[10px] uppercase font-black text-primary tracking-wide">Splitting Calculations Enabled</p>
+                       <p className="text-[9px] text-gray-500 mt-1 leading-relaxed">
+                          Intrastate splices overall taxation percentages into CGST (Central GST) and SGST (State GST) equally. Directs HSN/SAC parameters into lines.
+                       </p>
+                    </div>
+                 </div>
+              )}
+
+              {/* Conditional EU VAT features */}
+              {watch('taxPreset') === 'eu_vat' && (
+                 <div className="md:col-span-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-3xl bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2">
+                    <div>
+                       <p className="text-[10px] uppercase font-black text-primary tracking-wide">EU VAT Rules Engine</p>
+                       <p className="text-[9px] text-gray-500 mt-1 leading-relaxed">
+                          Permits flag tracking for EU reverse-charge B2B imports/exports to zero liabilities on foreign transfers.
+                       </p>
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer self-end sm:self-center">
+                       <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Apply Reverse Charge</span>
+                       <input 
+                         type="checkbox" 
+                         {...register('isReverseCharge')} 
+                         className="w-5 h-5 rounded border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-background" 
+                       />
+                    </label>
+                 </div>
+              )}
+            </div>
+
             {/* Customer Selection */}
             <div className="glass-card !p-10 rounded-[48px] relative group/client overflow-hidden">
                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] pointer-events-none group-hover/client:bg-primary/10 transition-all duration-700" />
@@ -915,7 +1176,7 @@ export const InvoiceEditor: React.FC = () => {
                 {fields.map((field, index) => (
                   <React.Fragment key={field.id}>
                     <div className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
-                      <div className="w-full md:col-span-5 space-y-2 relative">
+                      <div className="w-full md:col-span-4 space-y-2 relative">
                         <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
                         <div className="relative group/search">
                            <input 
@@ -1015,6 +1276,16 @@ export const InvoiceEditor: React.FC = () => {
                         </div>
                       </div>
                       
+                      {/* HSN/SAC Compliance Column */}
+                      <div className="w-full md:col-span-1 space-y-2">
+                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">HSN/SAC</label>
+                        <input 
+                          placeholder="Code" 
+                          {...register(`items.${index}.hsnSac` as const)} 
+                          className="input-field w-full text-xs py-2 bg-white/[0.01] hover:bg-white/[0.03] transition-all font-mono h-11" 
+                        />
+                      </div>
+
                       <div className="w-full flex-1 flex flex-col md:grid md:grid-cols-7 gap-4">
                          <div className="md:col-span-1 space-y-2">
                             <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
