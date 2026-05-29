@@ -95,6 +95,11 @@ export interface Invoice {
   recurringFrequency?: 'weekly' | 'monthly' | 'yearly';
   nextRecurringDate?: number;
   type?: 'invoice' | 'quotation' | 'estimate' | 'purchase_order' | 'credit_note';
+  fontFamily?: string;
+  margins?: 'compact' | 'comfortable' | 'spacious';
+  showTaxId?: boolean;
+  showSignature?: boolean;
+  showBankDetails?: boolean;
 }
 
 export interface Expense {
@@ -116,4 +121,12 @@ export interface AppSettings {
   currencyDefault: string;
   density: 'comfortable' | 'compact';
   autoBackup: boolean;
+  // Invoice Aesthetic Configurations
+  invoiceTemplateId?: string;
+  invoiceAccentColor?: string;
+  invoiceFontFamily?: string;
+  invoiceMargins?: 'compact' | 'comfortable' | 'spacious';
+  invoiceShowTaxId?: boolean;
+  invoiceShowSignature?: boolean;
+  invoiceShowBankDetails?: boolean;
 }

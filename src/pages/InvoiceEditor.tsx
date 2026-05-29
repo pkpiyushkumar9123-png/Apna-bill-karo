@@ -56,6 +56,11 @@ const invoiceSchema = z.object({
   category: z.string().optional(),
   templateId: z.string(),
   accentColor: z.string().optional(),
+  fontFamily: z.string().optional(),
+  margins: z.enum(['compact', 'comfortable', 'spacious']).optional(),
+  showTaxId: z.boolean().optional(),
+  showSignature: z.boolean().optional(),
+  showBankDetails: z.boolean().optional(),
 });
 
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -63,7 +68,7 @@ type InvoiceFormData = z.infer<typeof invoiceSchema>;
 export const InvoiceEditor: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, customers, products, profile, addInvoice, updateInvoice, addCustomer, addProduct } = useStore();
+  const { invoices, customers, products, profile, settings, addInvoice, updateInvoice, addCustomer, addProduct } = useStore();
   const [isPreview, setIsPreview] = useState(false);
   const [showQuickCustomer, setShowQuickCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', companyName: '', address: '' });
@@ -135,8 +140,13 @@ export const InvoiceEditor: React.FC = () => {
       notes: initialInvoice.notes,
       terms: initialInvoice.terms,
       category: initialInvoice.category || '',
-      templateId: initialInvoice.templateId || 'modern',
-      accentColor: (initialInvoice as any).accentColor || '#3B82F6',
+      templateId: initialInvoice.templateId || settings.invoiceTemplateId || 'modern',
+      accentColor: (initialInvoice as any).accentColor || settings.invoiceAccentColor || '#3B82F6',
+      fontFamily: initialInvoice.fontFamily || settings.invoiceFontFamily || 'Inter',
+      margins: initialInvoice.margins || settings.invoiceMargins || 'comfortable',
+      showTaxId: initialInvoice.showTaxId !== undefined ? initialInvoice.showTaxId : (settings.invoiceShowTaxId !== false),
+      showSignature: initialInvoice.showSignature !== undefined ? initialInvoice.showSignature : (settings.invoiceShowSignature !== false),
+      showBankDetails: initialInvoice.showBankDetails !== undefined ? initialInvoice.showBankDetails : (settings.invoiceShowBankDetails !== false),
     } : {
       number: `INV-${Date.now().toString().slice(-6)}`,
       date: Date.now(),
@@ -146,8 +156,13 @@ export const InvoiceEditor: React.FC = () => {
       notes: '',
       terms: '',
       category: '',
-      templateId: 'modern',
-      accentColor: '#3B82F6',
+      templateId: settings.invoiceTemplateId || 'modern',
+      accentColor: settings.invoiceAccentColor || '#3B82F6',
+      fontFamily: settings.invoiceFontFamily || 'Inter',
+      margins: settings.invoiceMargins || 'comfortable',
+      showTaxId: settings.invoiceShowTaxId !== false,
+      showSignature: settings.invoiceShowSignature !== false,
+      showBankDetails: settings.invoiceShowBankDetails !== false,
     }
   });
 
@@ -162,8 +177,13 @@ export const InvoiceEditor: React.FC = () => {
         notes: initialInvoice.notes,
         terms: initialInvoice.terms,
         category: initialInvoice.category || '',
-        templateId: initialInvoice.templateId || 'modern',
-        accentColor: (initialInvoice as any).accentColor || '#3B82F6',
+        templateId: initialInvoice.templateId || settings.invoiceTemplateId || 'modern',
+        accentColor: (initialInvoice as any).accentColor || settings.invoiceAccentColor || '#3B82F6',
+        fontFamily: initialInvoice.fontFamily || settings.invoiceFontFamily || 'Inter',
+        margins: initialInvoice.margins || settings.invoiceMargins || 'comfortable',
+        showTaxId: initialInvoice.showTaxId !== undefined ? initialInvoice.showTaxId : (settings.invoiceShowTaxId !== false),
+        showSignature: initialInvoice.showSignature !== undefined ? initialInvoice.showSignature : (settings.invoiceShowSignature !== false),
+        showBankDetails: initialInvoice.showBankDetails !== undefined ? initialInvoice.showBankDetails : (settings.invoiceShowBankDetails !== false),
       });
     } else if (!id) {
       reset({
@@ -175,11 +195,16 @@ export const InvoiceEditor: React.FC = () => {
         notes: '',
         terms: '',
         category: '',
-        templateId: 'modern',
-        accentColor: '#3B82F6',
+        templateId: settings.invoiceTemplateId || 'modern',
+        accentColor: settings.invoiceAccentColor || '#3B82F6',
+        fontFamily: settings.invoiceFontFamily || 'Inter',
+        margins: settings.invoiceMargins || 'comfortable',
+        showTaxId: settings.invoiceShowTaxId !== false,
+        showSignature: settings.invoiceShowSignature !== false,
+        showBankDetails: settings.invoiceShowBankDetails !== false,
       });
     }
-  }, [id, initialInvoice, reset]);
+  }, [id, initialInvoice, reset, settings]);
 
   const onInvalid = (errors: any) => {
     console.error('Form Validation Errors:', errors);
@@ -294,6 +319,11 @@ export const InvoiceEditor: React.FC = () => {
         status: initialInvoice?.status || 'draft',
         templateId: data.templateId || 'modern',
         accentColor: data.accentColor,
+        fontFamily: data.fontFamily,
+        margins: data.margins,
+        showTaxId: data.showTaxId,
+        showSignature: data.showSignature,
+        showBankDetails: data.showBankDetails,
         currency: profile?.currency || 'USD',
         createdAt: initialInvoice?.createdAt || Date.now(),
         updatedAt: Date.now(),
@@ -333,6 +363,11 @@ export const InvoiceEditor: React.FC = () => {
       status: initialInvoice?.status || 'draft',
       templateId: data.templateId || 'modern',
       accentColor: data.accentColor,
+      fontFamily: data.fontFamily,
+      margins: data.margins,
+      showTaxId: data.showTaxId,
+      showSignature: data.showSignature,
+      showBankDetails: data.showBankDetails,
       currency: profile?.currency || 'USD',
       createdAt: initialInvoice?.createdAt || Date.now(),
       updatedAt: Date.now(),
@@ -342,185 +377,254 @@ export const InvoiceEditor: React.FC = () => {
 
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId);
 
-  const renderPreviewContent = () => (
-    <div className="glass-card min-h-[800px] w-full max-w-4xl mx-auto p-8 md:p-12 bg-white text-black shadow-2xl relative overflow-hidden">
-        {/* Decorative background for template differentiation */}
-        {watch('templateId') === 'bold' && (
-           <div 
-             className="absolute top-0 right-0 w-1/2 h-full -mr-20 -mt-20 opacity-5 rotate-12"
-             style={{ backgroundColor: watch('accentColor') }}
-           />
+  const renderPreviewContent = () => {
+    const fontLookup: Record<string, string> = {
+      'Inter': '"Inter", sans-serif',
+      'Space Grotesk': '"Space Grotesk", sans-serif',
+      'Playfair Display': '"Playfair Display", serif',
+      'JetBrains Mono': '"JetBrains Mono", monospace',
+    };
+
+    const selTemplate = watch('templateId') || 'modern';
+    const selFont = watch('fontFamily') || 'Inter';
+    const selMargins = watch('margins') || 'comfortable';
+    const selColor = watch('accentColor') || '#FF4D57';
+    const isShowTax = watch('showTaxId') !== false;
+    const isShowSignature = watch('showSignature') !== false;
+    const isShowBank = watch('showBankDetails') !== false;
+
+    return (
+      <div 
+        className={cn(
+          "glass-card min-h-[800px] w-full max-w-4xl mx-auto bg-white text-black shadow-2xl relative overflow-hidden transition-all duration-300",
+          selMargins === 'compact' ? "p-4 md:p-6 text-xs" : 
+          selMargins === 'spacious' ? "p-10 md:p-16 text-sm" : 
+          "p-8 md:p-12 text-xs"
         )}
-        
-        {/* PDF Content Mockup */}
-        <div className={cn(
-           "flex mb-12 md:mb-20 items-start",
-           watch('templateId') === 'minimal' ? "flex-col gap-8" : "justify-between"
-        )}>
-          <div className="flex gap-6 items-center">
-            {profile?.logoUrl && (
-              <div className="w-24 h-24 rounded-xl overflow-hidden bg-white shadow-sm border border-gray-100 flex items-center justify-center">
-                <img src={profile.logoUrl} alt={profile.name} className="w-full h-full object-contain p-2" />
-              </div>
-            )}
-            <div>
-              <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter mb-4" style={{ color: watch('templateId') === 'bold' ? watch('accentColor') : 'inherit' }}>
-                 {profile?.name || 'BUSINESS NAME'}
-              </h2>
-              <div className="text-xs text-gray-500 leading-relaxed uppercase tracking-widest">
-                 <p>{profile?.address || 'Your Street, City'}</p>
-                 <p>{profile?.email || 'email@company.com'}</p>
-                 <p>{profile?.taxId && `Tax ID: ${profile.taxId}`}</p>
-              </div>
-            </div>
-          </div>
-          <div className={watch('templateId') === 'minimal' ? "text-left" : "text-right"}>
-            <p className={cn(
-               "text-4xl md:text-5xl font-black uppercase absolute pointer-events-none select-none",
-               watch('templateId') === 'bold' ? "-right-2 top-20 text-gray-200/50" : "-right-2 top-10 text-gray-100"
-            )}>Invoice</p>
-            <div className="relative z-10">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Number</p>
-              <p className="text-xl md:text-2xl font-black font-mono" style={{ color: watch('accentColor') }}>{watchedNumber}</p>
-            </div>
-          </div>
-        </div>
+        style={{
+          fontFamily: fontLookup[selFont] || '"Inter", sans-serif',
+        }}
+      >
+          {/* Top Bar for creative/luxury style */}
+          {selTemplate === 'luxury' && (
+            <div className="absolute top-0 inset-x-0 h-1.5 bg-[#1F2937]" />
+          )}
+          {selTemplate === 'creative' && (
+            <div className="absolute top-0 inset-x-0 h-1.5" style={{ backgroundColor: selColor }} />
+          )}
 
-        <div className={cn(
-           "grid grid-cols-2 gap-8 md:gap-12 mb-12 md:mb-20 border-y py-8 md:py-12",
-           watch('templateId') === 'classic' ? "border-black" : "border-gray-100"
-        )}>
-           <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Billed to</p>
-              <p className="text-base md:text-lg font-black uppercase">{selectedCustomer?.name || 'CLIENT NAME'}</p>
-              <div className="text-xs text-gray-500 mt-2 leading-relaxed">
-                <p>{selectedCustomer?.address || 'Client Address'}</p>
-                <p>{selectedCustomer?.email || 'client@email.com'}</p>
-              </div>
-           </div>
-           <div className="text-right space-y-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Date</p>
-                <p className="text-sm font-bold uppercase">{format(watch('date'), 'MMM dd, yyyy')}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Due Date</p>
-                <p className="text-sm font-bold uppercase">{format(watch('dueDate'), 'MMM dd, yyyy')}</p>
-              </div>
-           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full mb-12 md:mb-20 min-w-[600px]">
-             <thead>
-                <tr className="border-b-2 border-black">
-                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-left">Description</th>
-                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-center">Qty</th>
-                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Price</th>
-                   <th className="py-4 text-xs font-bold uppercase tracking-widest text-right">Amount</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-gray-100">
-                {watchedItems.map((item, idx) => {
-                  const q = parseFloat(String(item?.quantity)) || 0;
-                  const p = parseFloat(String(item?.price)) || 0;
-                  const d = parseFloat(String(item?.discount)) || 0;
-                  const t = parseFloat(String(item?.taxRate)) || 0;
-                  
-                  const sub = q * p;
-                  const discAmt = sub * (d / 100);
-                  const afterDisc = sub - discAmt;
-                  const taxAmt = afterDisc * (t / 100);
-                  const lineTotal = afterDisc + taxAmt;
-
-                  return (
-                    <tr key={idx}>
-                       <td className="py-6">
-                          <p className="font-bold text-gray-900">{item.description || 'Service Description'}</p>
-                          {(t > 0 || d > 0) && (
-                            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-tighter">
-                               {t > 0 && `Tax: ${t}% `}
-                               {d > 0 && `Disc: ${d}%`}
-                            </p>
-                          )}
-                       </td>
-                       <td className="py-6 text-center text-gray-600">{q}</td>
-                       <td className="py-6 text-right font-mono text-gray-600">${p.toFixed(2)}</td>
-                       <td className="py-6 text-right font-bold font-mono text-gray-900">${lineTotal.toFixed(2)}</td>
-                    </tr>
-                  );
-                })}
-             </tbody>
-          </table>
-        </div>
-
-        <div className="flex justify-end border-t-2 border-black pt-8 mb-12 md:mb-20">
-           <div className="w-64 space-y-4">
-              <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
-                 <span>Subtotal</span>
-                 <span>${totals.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 uppercase font-bold tracking-widest">
-                 <span>Tax Total</span>
-                 <span>${totals.taxTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between pt-4 border-t border-gray-100 text-2xl font-black uppercase">
-                 <span>Total</span>
-                 <span style={{ color: watch('accentColor') }}>${totals.total.toFixed(2)}</span>
-              </div>
-           </div>
-        </div>
-
-        <div className="mt-auto grid grid-cols-1 md:grid-cols-3 gap-8 pt-12 border-t border-gray-100 text-xs text-gray-500">
-           <div className="md:col-span-2 space-y-4">
-              <div>
-                 <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Notes</p>
-                 <p className="whitespace-pre-wrap italic text-gray-500">{watch('notes') || 'No special notes.'}</p>
-              </div>
-              <div>
-                 <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Terms & Conditions</p>
-                 <p className="whitespace-pre-wrap italic text-gray-500">{watch('terms') || 'Payment upon receipt.'}</p>
-              </div>
-           </div>
-           
-           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center text-center">
-              <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em] mb-2.5">Scan to Pay Instantly</span>
-              {qrUrl ? (
-                 <div 
-                   onClick={() => setZoomQr(true)}
-                   className="relative group/qr bg-white p-2 rounded-xl shadow-sm border border-gray-100 transition-all hover:scale-105 cursor-pointer"
-                 >
-                    <img src={qrUrl} alt="Invoice QR" className="w-24 h-24 object-contain" />
-                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/qr:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                       <span className="text-[8px] bg-white text-black px-1.5 py-0.5 rounded font-black tracking-widest shadow-sm">Zoom</span>
-                    </div>
-                 </div>
-              ) : (
-                 <div className="w-24 h-24 rounded-xl pb-1 bg-white border border-dashed border-gray-200 flex flex-col items-center justify-center p-3 text-center text-gray-400 gap-1">
-                    <QrCode size={18} />
-                    <span className="text-[8px] font-black uppercase tracking-wider leading-tight">No Pay Credentials</span>
-                 </div>
+          {/* Decorative background for template differentiation */}
+          {(selTemplate === 'bold' || selTemplate === 'creative') && (
+             <div 
+               className="absolute top-0 right-0 w-1/2 h-full -mr-20 -mt-20 opacity-5 rotate-12"
+               style={{ backgroundColor: selColor }}
+             />
+          )}
+          
+          {/* PDF Content Mockup */}
+          <div className={cn(
+             "flex mb-12 md:mb-16 items-start",
+             (selTemplate === 'minimal' || selTemplate === 'corporate') ? "flex-col gap-6" : "justify-between"
+          )}>
+            <div className="flex gap-6 items-center">
+              {profile?.logoUrl && (
+                <div className="w-24 h-24 rounded-xl overflow-hidden bg-white shadow-sm border border-gray-100 flex items-center justify-center">
+                  <img src={profile.logoUrl} alt={profile.name} className="w-full h-full object-contain p-2" />
+                </div>
               )}
-
-              <div className="mt-2.5 w-full">
-                 <p className="text-[8px] font-bold text-gray-800 uppercase tracking-wider">
-                    {profile?.upiId && qrType === 'upi' ? 'UPI Transfer Direct' : 'Bank Remittance'}
-                 </p>
-                 {profile?.upiId && qrType === 'upi' ? (
-                    <p className="text-[8px] font-mono text-gray-500 truncate max-w-[130px] mx-auto mt-0.5 font-bold">{profile.upiId}</p>
-                 ) : (
-                    profile?.bankAccount && (
-                       <div className="text-[7.5px] text-gray-500 font-mono mt-0.5 leading-tight">
-                          <p className="truncate">A/C: {profile.bankAccount}</p>
-                          <p>IFSC: {profile.ifscCode}</p>
-                       </div>
-                    )
-                 )}
+              <div>
+                <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter mb-2" style={{ color: selTemplate === 'bold' || selTemplate === 'creative' ? selColor : 'inherit' }}>
+                   {profile?.name || 'BUSINESS NAME'}
+                </h2>
+                <div className="text-[10px] text-gray-500 leading-relaxed uppercase tracking-widest">
+                   <p>{profile?.address || 'Your Street, City'}</p>
+                   <p>{profile?.email || 'email@company.com'}</p>
+                   {profile?.taxId && isShowTax && <p>{`Tax ID: ${profile.taxId}`}</p>}
+                </div>
               </div>
-           </div>
-        </div>
-    </div>
-  );
+            </div>
+            <div className={(selTemplate === 'minimal' || selTemplate === 'corporate') ? "text-left" : "text-right"}>
+              <p className={cn(
+                 "text-4xl md:text-5xl font-black uppercase absolute pointer-events-none select-none",
+                 (selTemplate === 'bold' || selTemplate === 'creative') ? "-right-2 top-20 text-gray-200/50" : "-right-2 top-10 text-gray-100"
+              )}>Invoice</p>
+              <div className="relative z-10">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Number</p>
+                <p className="text-xl md:text-2xl font-black font-mono" style={{ color: selColor }}>{watchedNumber}</p>
+              </div>
+            </div>
+          </div>
+  
+          <div className={cn(
+             "grid grid-cols-2 gap-8 md:gap-12 mb-12 md:mb-16 border-y py-8 md:py-10",
+             selTemplate === 'classic' ? "border-black" : "border-gray-100"
+          )}>
+             <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">Billed to</p>
+                <p className="text-base md:text-lg font-black uppercase">{selectedCustomer?.name || 'CLIENT NAME'}</p>
+                <div className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                  <p>{selectedCustomer?.address || 'Client Address'}</p>
+                  <p>{selectedCustomer?.email || 'client@email.com'}</p>
+                </div>
+             </div>
+             <div className="text-right space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Invoice Date</p>
+                  <p className="text-xs font-bold uppercase">{format(watch('date'), 'MMM dd, yyyy')}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Due Date</p>
+                  <p className="text-xs font-bold uppercase">{format(watch('dueDate'), 'MMM dd, yyyy')}</p>
+                </div>
+             </div>
+          </div>
+  
+          <div className="overflow-x-auto">
+            <table className="w-full mb-12 md:mb-16 min-w-[600px]">
+               <thead>
+                  <tr className={cn("border-b-2", selTemplate === 'classic' ? "border-black" : "border-gray-200")}>
+                     <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-left">Description</th>
+                     <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-center">Qty</th>
+                     <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-right">Price</th>
+                     <th className="py-4 text-[10px] font-bold uppercase tracking-widest text-right">Amount</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-100">
+                  {watchedItems.map((item, idx) => {
+                    const q = parseFloat(String(item?.quantity)) || 0;
+                    const p = parseFloat(String(item?.price)) || 0;
+                    const d = parseFloat(String(item?.discount)) || 0;
+                    const t = parseFloat(String(item?.taxRate)) || 0;
+                    
+                    const sub = q * p;
+                    const discAmt = sub * (d / 100);
+                    const afterDisc = sub - discAmt;
+                    const taxAmt = afterDisc * (t / 100);
+                    const lineTotal = afterDisc + taxAmt;
+  
+                    return (
+                      <tr key={idx}>
+                         <td className="py-5">
+                            <p className="font-bold text-gray-900">{item.description || 'Service Description'}</p>
+                            {(t > 0 || d > 0) && (
+                              <p className="text-[9px] text-gray-400 font-medium uppercase tracking-tighter">
+                                 {t > 0 && `Tax: ${t}% `}
+                                 {d > 0 && `Disc: ${d}%`}
+                              </p>
+                            )}
+                         </td>
+                         <td className="py-5 text-center text-gray-600">{q}</td>
+                         <td className="py-5 text-right font-mono text-gray-600">${p.toFixed(2)}</td>
+                         <td className="py-5 text-right font-bold font-mono text-gray-900">${lineTotal.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+               </tbody>
+            </table>
+          </div>
+  
+          <div className="flex justify-end border-t border-gray-100 pt-6 mb-8">
+             <div className="w-64 space-y-3">
+                <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                   <span>Subtotal</span>
+                   <span>${totals.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                   <span>Tax Total</span>
+                   <span>${totals.taxTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between pt-3 border-t border-gray-100 text-xl font-black uppercase">
+                   <span>Total</span>
+                   <span style={{ color: selColor }}>${totals.total.toFixed(2)}</span>
+                </div>
+             </div>
+          </div>
+
+          {/* Optional Bank Wire Instructions Segment */}
+          {isShowBank && (profile?.bankAccount || profile?.ifscCode) && (
+            <div className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50 space-y-1.5 mb-8">
+              <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest flex items-center gap-1">
+                <span>Direct Settlement Bank Transfer Details</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-[10px] text-gray-500 font-medium">
+                <p>Bank: <span className="font-bold text-gray-700">{profile?.bankName || 'N/A'}</span></p>
+                <p>A/C Holder: <span className="font-bold text-gray-700">{profile?.holderName || profile?.name}</span></p>
+                <p>Account No: <span className="font-bold text-gray-700 font-mono">{profile?.bankAccount || 'N/A'}</span></p>
+                <p>IFSC / SWIFT: <span className="font-bold text-gray-700 font-mono">{profile?.ifscCode || 'N/A'}</span></p>
+                {profile?.upiId && (
+                  <p className="col-span-2">UPI Identifier: <span className="font-bold text-gray-800 tracking-wide font-mono">{profile.upiId}</span></p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Signatory Footer segment */}
+          {isShowSignature && (
+            <div className="flex justify-end pt-4 border-t border-gray-100 mb-8">
+              <div className="text-right space-y-1.5">
+                <div className="h-8 w-28 border-b border-gray-200 ml-auto flex items-center justify-center relative overflow-hidden">
+                  {profile?.signature ? (
+                    <img src={profile.signature} alt="Sign" className="h-full object-contain" />
+                  ) : (
+                    <span className="text-[9px] tracking-wide text-gray-300 font-mono">Authorized Seal</span>
+                  )}
+                </div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Authorized Signatory</p>
+              </div>
+            </div>
+          )}
+  
+          <div className="mt-auto grid grid-cols-1 md:grid-cols-3 gap-8 pt-6 border-t border-gray-100 text-[11px] text-gray-500">
+             <div className="md:col-span-2 space-y-4">
+                <div>
+                   <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Notes</p>
+                   <p className="whitespace-pre-wrap italic text-gray-500">{watch('notes') || 'No special notes.'}</p>
+                </div>
+                <div>
+                   <p className="font-bold text-gray-700 uppercase tracking-widest mb-1.5">Terms & Conditions</p>
+                   <p className="whitespace-pre-wrap italic text-gray-500">{watch('terms') || 'Payment upon receipt.'}</p>
+                </div>
+             </div>
+             
+             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col items-center text-center">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em] mb-2.5">Scan to Pay Instantly</span>
+                {qrUrl ? (
+                   <div 
+                     onClick={() => setZoomQr(true)}
+                     className="relative group/qr bg-white p-2 rounded-xl shadow-sm border border-gray-100 transition-all hover:scale-105 cursor-pointer"
+                   >
+                      <img src={qrUrl} alt="Invoice QR" className="w-24 h-24 object-contain" />
+                      <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/qr:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                         <span className="text-[8px] bg-white text-black px-1.5 py-0.5 rounded font-black tracking-widest shadow-sm">Zoom</span>
+                      </div>
+                   </div>
+                ) : (
+                   <div className="w-24 h-24 rounded-xl pb-1 bg-white border border-dashed border-gray-200 flex flex-col items-center justify-center p-3 text-center text-gray-400 gap-1">
+                      <QrCode size={18} />
+                      <span className="text-[8px] font-black uppercase tracking-wider leading-tight">No Pay Credentials</span>
+                   </div>
+                )}
+  
+                <div className="mt-2.5 w-full">
+                   <p className="text-[8px] font-bold text-gray-800 uppercase tracking-wider">
+                      {profile?.upiId && qrType === 'upi' ? 'UPI Transfer Direct' : 'Bank Remittance'}
+                   </p>
+                   {profile?.upiId && qrType === 'upi' ? (
+                      <p className="text-[8px] font-mono text-gray-500 truncate max-w-[130px] mx-auto mt-0.5 font-bold">{profile.upiId}</p>
+                   ) : (
+                      profile?.bankAccount && (
+                         <div className="text-[7.5px] text-gray-500 font-mono mt-0.5 leading-tight">
+                            <p className="truncate">A/C: {profile.bankAccount}</p>
+                            <p>IFSC: {profile.ifscCode}</p>
+                         </div>
+                      )
+                   )}
+                </div>
+             </div>
+          </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-10 h-full relative">
@@ -1161,47 +1265,134 @@ export const InvoiceEditor: React.FC = () => {
           
           <div className="space-y-8 lg:space-y-10">
              {/* Visual Strategy Panel */}
-             <div className="glass-card !p-6 lg:!p-8 rounded-[40px] border-white/10 shadow-2xl relative overflow-hidden group/visual">
+             <div className="glass-card !p-6 lg:!p-8 rounded-[40px] border-white/10 shadow-2xl relative overflow-hidden group/visual space-y-6">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover/visual:opacity-100 transition-opacity duration-700" />
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
+                
+                {/* Section header */}
+                <div className="flex items-center gap-3 relative border-b border-white/5 pb-4">
+                  <Palette size={16} className="text-primary" style={{ color: watch('accentColor') }} />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Design & Aesthetics</h4>
+                    <p className="text-[8px] text-muted uppercase tracking-widest">Aesthetic layout settings</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6 relative">
+                   {/* Layout Preset selection */}
                    <div className="flex flex-col gap-2">
-                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-muted/60 mb-2">Design Infrastructure</span>
-                     <div className="flex gap-3">
-                       {['modern', 'bold', 'minimal', 'classic'].map(tid => (
+                     <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted/60">Layout Template Preset</span>
+                     <div className="grid grid-cols-3 gap-2">
+                       {[
+                         { id: 'modern', label: 'Modern' },
+                         { id: 'luxury', label: 'Luxury' },
+                         { id: 'corporate', label: 'Swiss' },
+                         { id: 'creative', label: 'Creative' },
+                         { id: 'minimal', label: 'Nano' },
+                         { id: 'classic', label: 'Heritage' }
+                       ].map(t => (
                          <button 
-                           key={tid} 
+                           key={t.id} 
                            type="button" 
-                           onClick={() => setValue('templateId', tid)}
+                           onClick={() => setValue('templateId', t.id, { shouldDirty: true })}
                            className={cn(
-                             "px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all hover:scale-105 active:scale-95",
-                             watch('templateId') === tid ? "bg-primary border-primary text-white shadow-xl shadow-primary/30" : "bg-white/5 border-white/5 text-muted/40 hover:text-white"
+                             "py-2 px-1 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all hover:scale-105 active:scale-95",
+                             watch('templateId') === t.id ? "bg-primary border-primary text-white shadow-lg" : "bg-white/5 border-white/5 text-muted/50 hover:text-white"
                            )}
+                           style={{ backgroundColor: watch('templateId') === t.id ? watch('accentColor') : undefined, borderColor: watch('templateId') === t.id ? watch('accentColor') : undefined }}
                          >
-                           {tid.slice(0,3)}
+                           {t.label}
                          </button>
                        ))}
                      </div>
                    </div>
-                   
-                   <div className="w-[1px] h-12 bg-white/10 hidden lg:block" />
 
+                   {/* Accent Primary Color selection */}
                    <div className="flex flex-col gap-2">
-                     <span className="text-[10px] font-black uppercase tracking-[0.4em] text-muted/60 mb-2">Primary Pigment</span>
-                     <div className="flex gap-3 items-center">
-                        {['#FF4444', '#3B82F6', '#10B981', '#F59E0B'].map(c => (
+                     <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted/60">Primary Accent Pigment</span>
+                     <div className="flex gap-2.5 items-center flex-wrap">
+                        {['#FF4D57', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'].map(c => (
                           <button 
                             key={c} 
                             type="button" 
-                            onClick={() => setValue('accentColor', c)}
+                            onClick={() => setValue('accentColor', c, { shouldDirty: true })}
                             className={cn(
-                              "w-8 h-8 rounded-full border-2 transition-all p-1 hover:scale-125",
-                              watch('accentColor') === c ? "border-white shadow-[0_0_20px_rgba(255,255,255,0.4)]" : "border-transparent opacity-40 hover:opacity-100"
+                              "w-7 h-7 rounded-lg border transition-all p-1 hover:scale-115 shrink-0",
+                              watch('accentColor') === c ? "border-white shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "border-transparent opacity-60 hover:opacity-100"
                             )}
                           >
-                            <div className="w-full h-full rounded-full shadow-inner" style={{ backgroundColor: c }} />
+                            <div className="w-full h-full rounded shadow-inner" style={{ backgroundColor: c }} />
                           </button>
                         ))}
                      </div>
+                   </div>
+
+                   {/* Typography selection */}
+                   <div className="flex flex-col gap-2">
+                     <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted/60">Brand Typography Font</span>
+                     <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'Inter', label: 'Inter Symmetrical' },
+                          { id: 'Space Grotesk', label: 'Space Grotesk Tech' },
+                          { id: 'Playfair Display', label: 'Playfair Luxe Serif' },
+                          { id: 'JetBrains Mono', label: 'JetBrains Dev Mono' }
+                        ].map(f => (
+                          <button 
+                            key={f.id} 
+                            type="button" 
+                            onClick={() => setValue('fontFamily', f.id, { shouldDirty: true })}
+                            className={cn(
+                              "py-1.5 px-2 rounded-xl text-[8.5px] font-bold text-left border transition-all truncate hover:bg-white/5",
+                              watch('fontFamily') === f.id ? "bg-white/10 text-white border-white/20" : "bg-white/5 border-transparent text-muted/55 hover:text-white"
+                            )}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Margins Selection */}
+                   <div className="flex flex-col gap-2">
+                     <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted/60">Margins & Density</span>
+                     <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+                        {[
+                          { id: 'compact', label: 'Compact' },
+                          { id: 'comfortable', label: 'Comfortable' },
+                          { id: 'spacious', label: 'Spacious' }
+                        ].map(m => (
+                          <button 
+                            key={m.id} 
+                            type="button" 
+                            onClick={() => setValue('margins', m.id as any, { shouldDirty: true })}
+                            className={cn(
+                              "flex-1 py-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-widest transition-all text-center",
+                              watch('margins') === m.id ? "bg-white/10 text-white border border-white/15" : "text-muted/60 hover:text-white"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Toggle fields */}
+                   <div className="pt-2 border-t border-white/5 space-y-3">
+                     {[
+                       { id: 'showTaxId', label: 'Display Business Tax ID Line' },
+                       { id: 'showSignature', label: 'Attach Authorized Signature Seal' },
+                       { id: 'showBankDetails', label: 'Render Settlement Banking Details' }
+                     ].map(opt => (
+                       <label key={opt.id} className="flex items-center justify-between cursor-pointer select-none">
+                         <span className="text-[10px] text-muted/80 font-medium">{opt.label}</span>
+                         <input 
+                           type="checkbox" 
+                           checked={watch(opt.id as any) !== false}
+                           onChange={(e) => setValue(opt.id as any, e.target.checked, { shouldDirty: true })}
+                           className="rounded bg-white/5 border-white/10 text-primary focus:ring-0 focus:ring-offset-0 w-4 h-4"
+                           style={{ color: watch('accentColor') }}
+                         />
+                       </label>
+                     ))}
                    </div>
                 </div>
              </div>

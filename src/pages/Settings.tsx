@@ -32,6 +32,7 @@ import { BusinessProfile } from '../types.ts';
 import * as XLSX from 'xlsx';
 import { cn } from '../lib/utils.ts';
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 
 export const Settings: React.FC = () => {
   const { profile, settings, updateProfile, updateSettings, isSaving, workspaceConnected, workspaceName, requestWorkspacePermission, gdriveSyncEnabled, isSyncingCloud, lastSyncTime, setGdriveSyncEnabled, syncCloudData } = useStore();
@@ -742,6 +743,28 @@ export const Settings: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Direct Studio Customizer Link banner */}
+            <div className="p-8 rounded-[38px] bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl mt-6">
+              <div className="absolute top-0 right-0 p-12 bg-primary/5 blur-3xl rounded-full" />
+              <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF4D57] to-pink-500 flex items-center justify-center text-white shadow-xl shadow-primary/10 shrink-0">
+                  <Palette size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black italic tracking-tight text-white mb-1 uppercase">Aesthetic Layout Customizer Studio</h3>
+                  <p className="text-xs text-muted/60 leading-relaxed max-w-sm">
+                    Customize brand typography, primary accent colors, custom margin densities, signature seals, and watch revisions re-render on on-the-fly paper sheets.
+                  </p>
+                </div>
+              </div>
+              <Link 
+                to="/templates"
+                className="px-6 py-4 bg-primary hover:bg-primary/95 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.25em] active:scale-[0.99] transition-all cursor-pointer whitespace-nowrap z-10 shadow-xl shadow-primary/25 hover:scale-105"
+              >
+                Launch Design Studio
+              </Link>
             </div>
           </section>
 

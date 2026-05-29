@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -12,10 +12,18 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   LineChart,
-  Target
+  Target,
+  Sparkles,
+  Zap,
+  Activity,
+  Cpu,
+  Coins,
+  Clock,
+  HelpCircle,
+  HelpCircle as InfoIcon
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
-import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, addMonths } from 'date-fns';
 import { 
   BarChart, 
   Bar, 
@@ -28,14 +36,24 @@ import {
   Area,
   Cell,
   PieChart as RePieChart,
-  Pie
+  Pie,
+  Legend
 } from 'recharts';
 
 export const Reports: React.FC = () => {
   const { invoices, expenses, profile } = useStore();
+  const [activeTab, setActiveTab] = useState<'actuals' | 'sandbox'>('actuals');
 
+  // Slider State for Idea 3: Strategic Forecast Scenario Sandbox
+  const [forecastHorizon, setForecastHorizon] = useState<number>(6); // Months
+  const [revenueMultiplier, setRevenueMultiplier] = useState<number>(20); // % Growth
+  const [expenseMultiplier, setExpenseMultiplier] = useState<number>(10); // % Growth
+  const [collectionDelay, setCollectionDelay] = useState<number>(30); // Days average
+
+  const COLORS = ['#FF4D57', '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6'];
+
+  // Current Actual Accounting Metrics
   const accountingData = useMemo(() => {
-    // Correct Revenue logic: Sum of all paid amounts
     const totalRev = invoices.reduce((acc, i) => acc + (i.paidAmount || 0), 0);
     const totalExp = expenses.reduce((acc, e) => acc + e.amount, 0);
     const profit = totalRev - totalExp;
@@ -67,159 +85,556 @@ export const Reports: React.FC = () => {
       };
     });
 
-    return { totalRev, totalExp, profit, margin, monthlyTrends };
+    // Top Expense Categories
+    const categoriesMap: { [key: string]: number } = {};
+    expenses.forEach(e => {
+      categoriesMap[e.category] = (categoriesMap[e.category] || 0) + e.amount;
+    });
+    const categoryWeights = Object.entries(categoriesMap).map(([name, val]) => ({
+      name,
+      value: val
+    })).sort((a, b) => b.value - a.value);
+
+    return { totalRev, totalExp, profit, margin, monthlyTrends, categoryWeights };
   }, [invoices, expenses]);
 
-  const COLORS = ['#FF4D57', '#3B82F6', '#F59E0B', '#10B981', '#6366F1'];
+  // Forecast Simulation Model (Idea 3)
+  const forecastData = useMemo(() => {
+    // 1. Calculate Average historical baseline metrics
+    const historicalMonthsCount = Math.max(1, accountingData.monthlyTrends.length);
+    const avgHistoricalRev = accountingData.totalRev > 0 
+      ? accountingData.totalRev / historicalMonthsCount 
+      : 60000; // default baseline helper
+    const avgHistoricalExp = accountingData.totalExp > 0 
+      ? accountingData.totalExp / historicalMonthsCount 
+      : 25000; // default baseline helper
+
+    // 2. Compute forecasting schedule month by month starting from next month
+    const list = [];
+    let cumulativeCash = Math.max(25000, accountingData.profit); // baseline reserve
+
+    for (let i = 1; i <= forecastHorizon; i++) {
+      const targetDate = addMonths(new Date(), i);
+      const monthLabel = format(targetDate, "MMM yy");
+
+      // Apply sales growth slider
+      const baseProjectedRev = avgHistoricalRev * (1 + revenueMultiplier / 100);
+      
+      // Apply collection delay factor
+      // Payment delays (days) dynamically shift incoming reserves, simulating lag
+      const collectionsEfficiency = Math.max(0.3, 1 - (collectionDelay / 90));
+      const effectiveRevenue = baseProjectedRev * collectionsEfficiency + (avgHistoricalRev * (1 - collectionsEfficiency));
+
+      // Apply operational expense inflation slider
+      const projectedExpense = avgHistoricalExp * (1 + expenseMultiplier / 100);
+      
+      const monthlyProfit = effectiveRevenue - projectedExpense;
+      cumulativeCash += monthlyProfit;
+
+      list.push({
+        name: monthLabel,
+        "Projected Revenue": Math.round(effectiveRevenue),
+        "Projected Expense": Math.round(projectedExpense),
+        "Projected Net Cashflow": Math.round(monthlyProfit),
+        "Estimated Cash Reserve": Math.round(cumulativeCash),
+        isGrowthTrend: monthlyProfit > 0
+      });
+    }
+
+    const runwayMonths = avgHistoricalExp > 0 
+      ? Math.round(Math.max(0, cumulativeCash) / avgHistoricalExp) 
+      : 12;
+
+    const totalScenarioRevenue = list.reduce((acc, current) => acc + current["Projected Revenue"], 0);
+    const totalScenarioExpense = list.reduce((acc, current) => acc + current["Projected Expense"], 0);
+    
+    return { list, runwayMonths, totalScenarioRevenue, totalScenarioExpense, endingCashReserve: cumulativeCash };
+  }, [
+    accountingData, 
+    forecastHorizon, 
+    revenueMultiplier, 
+    expenseMultiplier, 
+    collectionDelay
+  ]);
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-12 w-full overflow-hidden">
-      {/* Page Title & Actions */}
+      
+      {/* Page Title & Tab Navs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Analytics Center</h1>
-          <p className="text-muted text-xs font-medium tracking-wide mt-1">P&L reporting, margin insights, and operational spending</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <BarChart3 className="text-[#FF4D57]" size={24} />
+            <span>Executive Business Analytics Center</span>
+          </h1>
+          <p className="text-muted text-xs font-medium tracking-wide mt-1">
+            Plunge into detailed ledger P&L analytics, tax estimations, and dynamic scenario forecasting.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 bg-[#15171A] hover:bg-[#1d2024] text-white border border-white/5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all">
-            <Download size={14} />
-            <span>Export Audit</span>
+        
+        {/* Double Toggle Tabs */}
+        <div className="flex bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-xs shrink-0 self-stretch sm:self-auto justify-center">
+          <button 
+            onClick={() => setActiveTab('actuals')}
+            className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'actuals' ? 'bg-[#FF4D57] text-white shadow-lg shadow-red-500/10' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <PieChart size={14} />
+            <span>Historical Actuals</span>
           </button>
-          <button className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-all">
-            <FileSpreadsheet size={14} />
-            <span>Generate Excel</span>
+          <button 
+            onClick={() => setActiveTab('sandbox')}
+            className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'sandbox' ? 'bg-gradient-to-r from-[#FF4D57] to-pink-500 text-white shadow-lg shadow-pink-500/10' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Sparkles size={14} className={activeTab === 'sandbox' ? 'animate-pulse' : ''} />
+            <span>Scenario Projections Sandbox</span>
           </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        <StatsCard 
-          label="Gross Revenue Ledger" 
-          value={`${profile?.currency || 'INR'} ${accountingData.totalRev.toLocaleString()}`} 
-          trend="+12%" 
-          positive={true} 
-          icon={<TrendingUp size={16} />} 
-        />
-        <StatsCard 
-          label="Operational Expenses" 
-          value={`${profile?.currency || 'INR'} ${accountingData.totalExp.toLocaleString()}`} 
-          trend="+5%" 
-          positive={false} 
-          icon={<TrendingDown size={16} />} 
-        />
-        <StatsCard 
-          label="Net Profit Margin" 
-          value={`${profile?.currency || 'INR'} ${accountingData.profit.toLocaleString()}`} 
-          trend="+8%" 
-          positive={accountingData.profit >= 0} 
-          icon={<BarChart3 size={16} />} 
-        />
-        <StatsCard 
-          label="Gross Yield Margin" 
-          value={`${accountingData.margin.toFixed(1)}%`} 
-          trend="+2%" 
-          positive={true} 
-          icon={<Target size={16} />} 
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full min-w-0">
-        {/* Main P&L Chart */}
-        <div className="lg:col-span-2 bg-[#111214] border border-white/5 rounded-xl p-5 md:p-6 space-y-6 overflow-hidden min-w-0 w-full">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-              <LineChart size={16} className="text-[#FF4D57]" />
-              <span>Profit & Loss Statement</span>
-            </h3>
-            <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
-              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#FF4D57]" /> Profit Ledger</div>
-              <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-white/15" /> Cost Base</div>
+      <AnimatePresence mode="wait">
+        {activeTab === 'actuals' ? (
+          <motion.div
+            key="actuals"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-6"
+          >
+            {/* Standard Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+              <StatsCard 
+                label="Gross Revenue Ledger" 
+                value={`${profile?.currency || 'INR'} ${accountingData.totalRev.toLocaleString()}`} 
+                trend="+12%" 
+                positive={true} 
+                icon={<TrendingUp size={16} />} 
+              />
+              <StatsCard 
+                label="Operational Expenses" 
+                value={`${profile?.currency || 'INR'} ${accountingData.totalExp.toLocaleString()}`} 
+                trend="+5%" 
+                positive={false} 
+                icon={<TrendingDown size={16} />} 
+              />
+              <StatsCard 
+                label="Net Profit Margin" 
+                value={`${profile?.currency || 'INR'} ${accountingData.profit.toLocaleString()}`} 
+                trend="+8%" 
+                positive={accountingData.profit >= 0} 
+                icon={<BarChart3 size={16} />} 
+              />
+              <StatsCard 
+                label="Gross Yield Margin" 
+                value={`${accountingData.margin.toFixed(1)}%`} 
+                trend="+2%" 
+                positive={true} 
+                icon={<Target size={16} />} 
+              />
             </div>
-          </div>
-          <div className="h-[280px] w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={accountingData.monthlyTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff03" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} tickFormatter={(v) => `${v}`} />
-                <Tooltip 
-                  cursor={{fill: '#ffffff01'}}
-                  contentStyle={{ backgroundColor: '#15171A', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}
-                  itemStyle={{ fontSize: '11px', color: '#F5F5F5' }}
-                />
-                <Bar dataKey="revenue" fill="#FF4D57" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="expense" fill="rgba(255,255,255,0.15)" radius={[4, 4, 0, 0]} barSize={16} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Expense Categories */}
-        <div className="bg-[#111214] border border-white/5 rounded-xl p-5 md:p-6 space-y-6 overflow-hidden min-w-0 w-full">
-          <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
-            <PieChart size={16} className="text-[#FF4D57]" />
-            <span>Expense Category Weight</span>
-          </h3>
-          <div className="h-[180px] w-full flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <RePieChart>
-                <Pie
-                  data={accountingData.monthlyTrends}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={65}
-                  paddingAngle={4}
-                  dataKey="expense"
-                >
-                  {accountingData.monthlyTrends.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#15171A', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }} />
-              </RePieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-2 max-h-[140px] overflow-y-auto custom-scrollbar">
-            {accountingData.monthlyTrends.slice(0, 4).map((entry, i) => (
-              <div key={`${entry.name}-${i}`} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="text-xs text-[#A1A1AA] font-medium">{entry.name} Operations</span>
+            {/* Main Visuals actuals */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full min-w-0">
+              
+              {/* Profit & Loss statement */}
+              <div className="lg:col-span-2 bg-[#111214] border border-white/5 rounded-2xl p-5 md:p-6 space-y-6 overflow-hidden min-w-0 w-full">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                    <LineChart size={16} className="text-[#FF4D57]" />
+                    <span>Profit & Loss Statement (6-mo back)</span>
+                  </h3>
+                  <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#FF4D57]" /> Revenue</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-white/15" /> Costs</div>
+                  </div>
                 </div>
-                <span className="font-mono font-semibold text-white">{profile?.currency || 'INR'} {entry.expense.toLocaleString()}</span>
+                <div className="h-[280px] w-full min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={accountingData.monthlyTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff03" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} />
+                      <Tooltip 
+                        cursor={{fill: '#ffffff01'}}
+                        contentStyle={{ backgroundColor: '#15171A', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px' }}
+                        itemStyle={{ fontSize: '11px', color: '#F5F5F5' }}
+                      />
+                      <Bar dataKey="revenue" fill="#FF4D57" radius={[4, 4, 0, 0]} barSize={16} />
+                      <Bar dataKey="expense" fill="rgba(255,255,255,0.15)" radius={[4, 4, 0, 0]} barSize={16} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-        <div className="bg-[#111214] border border-white/5 p-5 rounded-xl space-y-3 relative group overflow-hidden">
-           <div className="absolute top-4 right-4 text-[#A1A1AA]/10 group-hover:text-white/5 transition-colors">
-              <FileSpreadsheet size={48} />
-           </div>
-           <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Asset Inventory Valuation</h4>
-           <p className="text-xs text-[#A1A1AA] max-w-sm">Aggregated monetary estimation of stocks, components, and inventory assets checked into workspaces.</p>
-           <div className="pt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-white">{profile?.currency || 'INR'} 42,900</span>
-              <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-widest">Audited Asset</span>
-           </div>
-        </div>
+              {/* Expense category weight */}
+              <div className="bg-[#111214] border border-white/5 rounded-2xl p-5 md:p-6 space-y-6 overflow-hidden min-w-0 w-full flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                    <PieChart size={16} className="text-[#FF4D57]" />
+                    <span>Expense Category Weight</span>
+                  </h3>
+                  {accountingData.categoryWeights.length > 0 ? (
+                    <div className="h-[180px] w-full flex items-center justify-center min-w-0 mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RePieChart>
+                          <Pie
+                            data={accountingData.categoryWeights}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={65}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {accountingData.categoryWeights.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ backgroundColor: '#15171A', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px' }} />
+                        </RePieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[180px] flex items-center justify-center text-xs text-muted text-center leading-normal">
+                      No expense data filed in this workspace yet. Write expenses to see interactive charting weights.
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-2 max-h-[140px] overflow-y-auto custom-scrollbar mt-4 border-t border-white/5 pt-3">
+                  {accountingData.categoryWeights.slice(0, 4).map((entry, i) => (
+                    <div key={`${entry.name}-${i}`} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <span className="text-xs text-[#A1A1AA] font-semibold truncate max-w-[120px]">{entry.name}</span>
+                      </div>
+                      <span className="font-mono font-bold text-white">{profile?.currency || 'INR'} {entry.value.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-        <div className="bg-[#111214] border border-white/5 p-5 rounded-xl space-y-3 relative group overflow-hidden">
-           <div className="absolute top-4 right-4 text-[#A1A1AA]/10 group-hover:text-white/5 transition-colors">
-              <FileText size={48} />
-           </div>
-           <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Quarterly Tax Provision Estimate</h4>
-           <p className="text-xs text-[#A1A1AA] max-w-sm">Evaluated sales taxes (GST/VAT) computed safely based on issued receivables and cost write-offs.</p>
-           <div className="pt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-white">{profile?.currency || 'INR'} 3,240</span>
-              <span className="text-[10px] font-semibold text-rose-400 uppercase tracking-widest flex items-center gap-1">Provisional</span>
-           </div>
-        </div>
-      </div>
+            </div>
+
+            {/* Bottom auxiliary actuals */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+              <div className="bg-[#111214] border border-white/5 p-5 rounded-2xl space-y-3 relative group overflow-hidden">
+                <div className="absolute top-4 right-4 text-[#A1A1AA]/10 group-hover:text-white/5 transition-colors">
+                  <FileSpreadsheet size={48} />
+                </div>
+                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Asset Inventory Valuation</h4>
+                <p className="text-xs text-[#A1A1AA] max-w-sm leading-normal">Aggregated monetary estimation of stocks, components, and inventory assets checked into workspaces.</p>
+                <div className="pt-2 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-white">{profile?.currency || 'INR'} 42,900</span>
+                  <span className="text-[10px] font-semibold text-[#FF4D57] uppercase tracking-widest leading-none">Audited Asset</span>
+                </div>
+              </div>
+
+              <div className="bg-[#111214] border border-white/5 p-5 rounded-2xl space-y-3 relative group overflow-hidden">
+                <div className="absolute top-4 right-4 text-[#A1A1AA]/10 group-hover:text-white/5 transition-colors">
+                  <FileText size={48} />
+                </div>
+                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">Quarterly Tax Provision Estimate</h4>
+                <p className="text-xs text-[#A1A1AA] max-w-sm leading-normal">Evaluated sales taxes (GST/VAT) computed safely based on issued receivables and cost write-offs.</p>
+                <div className="pt-2 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-white">{profile?.currency || 'INR'} 3,240</span>
+                  <span className="text-[10px] font-semibold text-yellow-400 uppercase tracking-widest flex items-center gap-1 leading-none">Provisional</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="sandbox"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="space-y-6"
+          >
+            {/* Header banner */}
+            <div className="p-4 bg-gradient-to-r from-[#FF4D57]/10 to-transparent border border-[#FF4D57]/20 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FF4D57]/20 border border-[#FF4D57]/30 flex items-center justify-center text-[#FF4D57] animate-pulse">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Strategic Scenario Projection Sandbox</h3>
+                  <p className="text-xs text-[#A1A1AA] max-w-xl mt-0.5 leading-normal">
+                    Play what-if modeling simulation rules based on payment receipts collections latency, future client growth scenarios, and operational expense inflation bounds.
+                  </p>
+                </div>
+              </div>
+              <div className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-emerald-400/10 border border-emerald-500/20 px-3 py-1.5 rounded-full flex items-center gap-1">
+                <Activity size={12} /> Predictive Engine Operational
+              </div>
+            </div>
+
+            {/* Forecasting Split Grids */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              
+              {/* Left Slider Control Panel (5 Cols) */}
+              <div className="xl:col-span-5 space-y-4">
+                
+                {/* Control Center Container */}
+                <div className="bg-[#111214] border border-white/5 rounded-2xl p-5 md:p-6 space-y-6">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-2.5">
+                    <Cpu size={14} className="text-[#FF4D57]" />
+                    <span>Projection Sandbox Scenarios</span>
+                  </h3>
+
+                  {/* Slider 1: Forecast Horizon */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[#A1A1AA] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                        <Calendar size={12} className="text-purple-400" />
+                        A. Projection Horizon
+                      </span>
+                      <span className="font-mono font-black text-purple-400 bg-purple-400/10 px-2 py-0.5 border border-purple-400/10 rounded">
+                        {forecastHorizon} Months
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="3" 
+                      max="18" 
+                      value={forecastHorizon} 
+                      onChange={(e) => setForecastHorizon(parseInt(e.target.value))}
+                      className="w-full accent-purple-400 h-1.5 bg-white/5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] font-bold text-zinc-600 uppercase">
+                      <span>3 Months (Short)</span>
+                      <span>18 Months (Long-range)</span>
+                    </div>
+                  </div>
+
+                  {/* Slider 2: Potential Sales growth */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[#A1A1AA] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                        <TrendingUp size={12} className="text-emerald-400" />
+                        B. Future Invoice growth Rate
+                      </span>
+                      <span className="font-mono font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 border border-emerald-400/10 rounded">
+                        {revenueMultiplier >= 0 ? `+${revenueMultiplier}` : revenueMultiplier}%
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="-50" 
+                      max="200" 
+                      value={revenueMultiplier} 
+                      onChange={(e) => setRevenueMultiplier(parseInt(e.target.value))}
+                      className="w-full accent-emerald-400 h-1.5 bg-white/5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] font-bold text-zinc-600 uppercase">
+                      <span>-50% (Contraction)</span>
+                      <span>+200% (Hyper Growth)</span>
+                    </div>
+                  </div>
+
+                  {/* Slider 3: Cost Inflation */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[#A1A1AA] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                        <TrendingDown size={12} className="text-rose-400" />
+                        C. Cost Inflation multiplier
+                      </span>
+                      <span className="font-mono font-black text-rose-400 bg-rose-400/10 px-2 py-0.5 border border-rose-400/10 rounded">
+                        {expenseMultiplier >= 0 ? `+${expenseMultiplier}` : expenseMultiplier}%
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="-30" 
+                      max="100" 
+                      value={expenseMultiplier} 
+                      onChange={(e) => setExpenseMultiplier(parseInt(e.target.value))}
+                      className="w-full accent-rose-400 h-1.5 bg-white/5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] font-bold text-zinc-600 uppercase">
+                      <span>-30% (Budget Cuts)</span>
+                      <span>+100% (High Spend)</span>
+                    </div>
+                  </div>
+
+                  {/* Slider 4: Collection delay */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[#A1A1AA] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                        <Clock size={12} className="text-yellow-400" />
+                        D. Client Settlement Cycle Lag
+                      </span>
+                      <span className="font-mono font-black text-yellow-400 bg-yellow-400/10 px-2 py-0.5 border border-yellow-400/10 rounded">
+                        Net-{collectionDelay} Days
+                      </span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="90" 
+                      value={collectionDelay} 
+                      onChange={(e) => setCollectionDelay(parseInt(e.target.value))}
+                      className="w-full accent-yellow-400 h-1.5 bg-white/5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] font-bold text-zinc-600 uppercase">
+                      <span>Instant Transfer</span>
+                      <span>Net-90 (Standard Lag)</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Simulated Business Metrics Outputs Card */}
+                <div className="p-5 rounded-2xl bg-[#111214] border border-white/5 grid grid-cols-2 gap-4">
+                  <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-xl text-left space-y-1">
+                    <p className="text-[9px] font-semibold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1 text-purple-400">
+                      <Zap size={10} /> Simulated runway
+                    </p>
+                    <p className="text-xl font-bold text-white">{forecastData.runwayMonths} Months</p>
+                    <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">Operation Lifespan</p>
+                  </div>
+                  <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-xl text-left space-y-1">
+                    <p className="text-[9px] font-semibold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1 text-[#FF4D57]">
+                      <Coins size={10} /> Ending Cash Reserve
+                    </p>
+                    <p className="text-xl font-bold text-white">
+                      {profile?.currency || 'INR'} {Math.max(0, forecastData.endingCashReserve).toLocaleString()}
+                    </p>
+                    <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">Liquid Cash Balance</p>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Right Chart Visualization Sandbox area (7 Cols) */}
+              <div className="xl:col-span-7 bg-[#111214] border border-white/5 rounded-2xl p-5 md:p-6 space-y-6">
+                
+                {/* Chart Header */}
+                <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                  <h3 className="text-sm font-semibold text-white tracking-tight flex items-center gap-2">
+                    <LineChart size={16} className="text-[#FF4D57]" />
+                    <span>Projected Liquidity Allocation Strategy</span>
+                  </h3>
+                  <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                      Reserve Projection
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Inflow Scenario
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recharts Area Projection */}
+                <div className="h-[280px] w-full min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={forecastData.list} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#6366F1" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff03" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#52525B', fontSize: 10}} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#15171A', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px' }}
+                        itemStyle={{ fontSize: '11px', color: '#F5F5F5' }}
+                      />
+                      <Area type="monotone" dataKey="Estimated Cash Reserve" stroke="#6366F1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorCash)" />
+                      <Area type="monotone" dataKey="Projected Revenue" stroke="#10B981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRev)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Forecast Timeline Bar Ledger List */}
+                <div className="space-y-2 border-t border-white/5 pt-4">
+                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest leading-none">Scenario Spreadsheet Projections Schedule</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[140px] overflow-y-auto custom-scrollbar pt-1.5">
+                    {forecastData.list.map((mForecast, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col justify-between text-left space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-white">{mForecast.name}</span>
+                          <div className={`w-1.5 h-1.5 rounded-full ${mForecast.isGrowthTrend ? 'bg-emerald-500' : 'bg-[#FF4D57]'}`} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-wide leading-none">Net Reserve</p>
+                          <p className="font-mono text-xs font-bold text-[#A1A1AA]">{profile?.currency || 'INR'} {mForecast["Estimated Cash Reserve"].toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* AI Advisor Scenario Insights Panel */}
+            <div className="p-6 rounded-3xl bg-[#111214] border border-white/5 space-y-4">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-2.5">
+                <Cpu size={14} className="text-yellow-400 animate-spin-slow" />
+                <span>Smart Optimization Strategy Advisor Reports</span>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="space-y-1.5 text-left">
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <TrendingUp size={14} />
+                    <h4 className="text-xs font-bold text-white uppercase">Collections Delay Impact Mitigation</h4>
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] leading-normal">
+                    {collectionDelay > 45 ? (
+                      `Warning: Your custom selected settlement cycle lag of Net-${collectionDelay} days significantly drags down liquid reserve velocity. Under severe cost inflation, we recommend moving clients to structured milestones (e.g. 50% upfront, 50% Net-15) to shore up cash balance buffer.`
+                    ) : (
+                      `Outstanding choice! Operating with a tight settlement cycle latency of Net-${collectionDelay} days secures supreme liquidity. This safeguards your corporate accounts against operational overhead scaling inflation.`
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 text-left">
+                  <div className="flex items-center gap-1 text-purple-400">
+                    <Activity size={14} />
+                    <h4 className="text-xs font-bold text-white uppercase">Operational Costs Buffer Strategy</h4>
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] leading-normal">
+                    {expenseMultiplier > 40 ? (
+                      `Caution: High projected operational cost expansion (+${expenseMultiplier}%) eats away your net margins. Adjust product rates or line item fees dynamically by modifying matching invoice inventories in the inventory manager.`
+                    ) : (
+                      `Secure margin levels: Maintain constant optimization guidelines in business settings. By limiting operational expense inflation bounds, your cumulative liquid reserve safely builds over the forecast timeline.`
+                    )}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 text-left">
+                  <div className="flex items-center gap-1 text-pink-500">
+                    <Zap size={14} />
+                    <h4 className="text-xs font-bold text-white uppercase">Strategic Capital allocation</h4>
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] leading-normal">
+                    {forecastData.runwayMonths < 4 ? (
+                      `Risk detected: Your runway profile of ${forecastData.runwayMonths} months falls below safe levels (6 mo recommended). We mandate prioritizing direct payment links or client cash deposits to protect operations.`
+                    ) : (
+                      `Flawless runway index: Your strategic cash projection models a highly robust ${forecastData.runwayMonths} months runway. You possess surplus funding suitable to reinvest into inventory scaling or client campaigns.`
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -235,8 +650,8 @@ const StatsCard = ({ label, value, trend, positive, icon }: any) => (
       </div>
     </div>
     <div className="pt-2">
-      <p className="text-[9px] font-semibold text-[#A1A1AA] uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-bold text-white mt-0.5 leading-none">{value}</p>
+      <p className="text-[9px] font-semibold text-[#A1A1AA] uppercase tracking-wider text-left">{label}</p>
+      <p className="text-lg font-bold text-white mt-0.5 leading-none text-left">{value}</p>
     </div>
   </div>
 );

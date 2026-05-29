@@ -63,31 +63,68 @@ interface AppState {
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  invoices: [],
-  customers: [],
-  products: [],
-  expenses: [],
-  profile: null,
-  settings: {
+const getLocalStorageItem = <T>(key: string, defaultValue: T): T => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (e) {
+    console.error(`Error reading key ${key} from localStorage`, e);
+    return defaultValue;
+  }
+};
+
+const saveToLocalStorage = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error(`Error saving key ${key} to localStorage`, e);
+  }
+};
+
+export const useStore = create<AppState>((originalSet, get) => {
+  const set = (nextState: any) => {
+    originalSet(nextState);
+    const updated = get();
+    saveToLocalStorage('novabill_local_invoices', updated.invoices || []);
+    saveToLocalStorage('novabill_local_customers', updated.customers || []);
+    saveToLocalStorage('novabill_local_products', updated.products || []);
+    saveToLocalStorage('novabill_local_expenses', updated.expenses || []);
+    if (updated.profile) saveToLocalStorage('novabill_local_profile', updated.profile);
+    saveToLocalStorage('novabill_local_settings', updated.settings);
+  };
+
+  const initialInvoices = getLocalStorageItem<Invoice[]>('novabill_local_invoices', []);
+  const initialCustomers = getLocalStorageItem<Customer[]>('novabill_local_customers', []);
+  const initialProducts = getLocalStorageItem<Product[]>('novabill_local_products', []);
+  const initialExpenses = getLocalStorageItem<Expense[]>('novabill_local_expenses', []);
+  const initialProfile = getLocalStorageItem<BusinessProfile | null>('novabill_local_profile', null);
+  const initialSettings = getLocalStorageItem<AppSettings>('novabill_local_settings', {
     theme: 'dark',
     accentColor: '#FF4444',
     language: 'en',
     currencyDefault: 'INR',
     density: 'comfortable',
     autoBackup: true,
-  },
-  isLoading: true,
-  isSaving: false,
-  workspaceConnected: false,
-  workspaceName: null,
-  workspaceError: null,
-  needsPermission: false,
-  gdriveSyncEnabled: localStorage.getItem('novabill_gdrive_sync_enabled') !== 'false',
-  isSyncingCloud: false,
-  lastSyncFingerprint: null,
-  lastSyncTime: null,
-  lastSyncResult: 'idle',
+  });
+
+  return {
+    invoices: initialInvoices,
+    customers: initialCustomers,
+    products: initialProducts,
+    expenses: initialExpenses,
+    profile: initialProfile,
+    settings: initialSettings,
+    isLoading: true,
+    isSaving: false,
+    workspaceConnected: false,
+    workspaceName: null,
+    workspaceError: null,
+    needsPermission: false,
+    gdriveSyncEnabled: localStorage.getItem('novabill_gdrive_sync_enabled') !== 'false',
+    isSyncingCloud: false,
+    lastSyncFingerprint: null,
+    lastSyncTime: null,
+    lastSyncResult: 'idle',
 
   init: async () => {
     set({ isLoading: true });
@@ -621,4 +658,5 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set({ isSaving: false });
   },
-}));
+  };
+});

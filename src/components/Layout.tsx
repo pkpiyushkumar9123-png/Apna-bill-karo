@@ -22,7 +22,8 @@ import {
   ShoppingCart,
   Receipt,
   Wallet,
-  RefreshCw
+  RefreshCw,
+  Palette
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../store/useStore.ts';
@@ -160,6 +161,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <NavItem to="/customers" icon={<Users size={18} />} label="Client Accounts" collapsed={isCollapsed} />
           <NavItem to="/products" icon={<Package size={18} />} label="Inventory Control" collapsed={isCollapsed} />
           <NavItem to="/reports" icon={<BarChart3 size={18} />} label="Analytics Center" collapsed={isCollapsed} />
+          <NavItem to="/templates" icon={<Palette size={18} />} label="Design Templates" collapsed={isCollapsed} />
           <NavItem to="/workspace-sync" icon={<FolderSync size={18} />} label="Cloud Workspace" collapsed={isCollapsed} />
           <NavItem to="/settings" icon={<Settings size={18} />} label="Workspace Preferences" collapsed={isCollapsed} />
         </nav>
