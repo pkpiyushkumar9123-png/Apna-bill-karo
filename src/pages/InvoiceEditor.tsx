@@ -262,6 +262,20 @@ export const InvoiceEditor: React.FC = () => {
   const watchedNumber = watch('number');
   const watchedCustomerId = watch('customerId');
 
+  const watchedCurrency = watch('currency') || 'INR';
+  const symbolsLookup: Record<string, string> = {
+    'INR': '₹',
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'CAD': 'C$',
+    'AUD': 'A$',
+    'AED': 'AED ',
+    'SGD': 'S$',
+    'JPY': '¥',
+  };
+  const activeCurrencySymbol = symbolsLookup[watchedCurrency] || '$';
+
   const totals = useMemo(() => {
     if (!watchedItems || !Array.isArray(watchedItems)) {
       return { subtotal: 0, taxTotal: 0, discountTotal: 0, total: 0 };
@@ -1286,7 +1300,7 @@ export const InvoiceEditor: React.FC = () => {
                         />
                       </div>
 
-                      <div className="w-full flex-1 flex flex-col md:grid md:grid-cols-7 gap-4">
+                      <div className="w-full md:col-span-7 flex flex-col md:grid md:grid-cols-7 gap-4">
                          <div className="md:col-span-1 space-y-2">
                             <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
                             <div className="relative group/qty">
@@ -1320,7 +1334,7 @@ export const InvoiceEditor: React.FC = () => {
                                    <span className="text-[8px] font-black uppercase tracking-[0.1em] text-muted">
                                      Stock: {getProductAvailability(watchedItems[index].productId!)}
                                    </span>
-                                </div>
+                                 </div>
                               )}
                             </div>
                          </div>
@@ -1328,12 +1342,16 @@ export const InvoiceEditor: React.FC = () => {
                          <div className="md:col-span-2 space-y-2">
                             <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Unit Price</label>
                             <div className="relative">
-                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">$</span>
+                               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">
+                                 {activeCurrencySymbol}
+                               </span>
                                <input 
                                  type="number"
                                  step="0.01"
                                  {...register(`items.${index}.price` as const, { valueAsNumber: true })} 
-                                 className="input-field w-full text-sm pl-8 font-mono font-bold h-11"
+                                 className={`input-field w-full text-sm font-mono font-bold h-11 ${
+                                   activeCurrencySymbol.length > 2 ? 'pl-14' : activeCurrencySymbol.length > 1 ? 'pl-9' : 'pl-7'
+                                 }`}
                                />
                             </div>
                          </div>
@@ -1359,8 +1377,9 @@ export const InvoiceEditor: React.FC = () => {
                          <div className="md:col-span-2 flex flex-col items-end justify-center pt-2">
                             <label className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1" style={{ color: watch('accentColor') }}>Line Total</label>
                             <div className="flex items-center gap-3">
-                               <p className="text-sm font-black font-mono text-primary" style={{ color: watch('accentColor') }}>
-                                 ${(() => {
+                               <p className="text-sm font-black font-mono text-primary whitespace-nowrap" style={{ color: watch('accentColor') }}>
+                                 {activeCurrencySymbol}
+                                 {(() => {
                                    const qty = Number(watchedItems[index]?.quantity) || 0;
                                    const prc = Number(watchedItems[index]?.price) || 0;
                                    const disc = Number(watchedItems[index]?.discount) || 0;
@@ -1370,7 +1389,7 @@ export const InvoiceEditor: React.FC = () => {
                                    return (afterDisc + (afterDisc * (tax / 100))).toFixed(2);
                                  })()}
                                </p>
-                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">
                                  <button 
                                    type="button" 
                                    onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
