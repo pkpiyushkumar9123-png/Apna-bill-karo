@@ -69,6 +69,7 @@ export const Invoices: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [dateSort, setDateSort] = useState<'newest' | 'oldest'>('newest');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -153,6 +154,12 @@ export const Invoices: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
     const matchesCategory = categoryFilter === 'all' || inv.category === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
+  }).sort((a, b) => {
+    if (dateSort === 'newest') {
+      return b.date - a.date;
+    } else {
+      return a.date - b.date;
+    }
   });
 
   const categories = Array.from(new Set(invoices.map(inv => inv.category).filter(Boolean)));
@@ -225,6 +232,17 @@ export const Invoices: React.FC = () => {
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
+          <div className="relative flex-1 lg:w-48 group">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors" size={16} />
+            <select 
+              className="input-field py-4 pl-12 pr-4 text-xs font-bold uppercase tracking-widest w-full appearance-none bg-background cursor-pointer hover:bg-white/5"
+              value={dateSort}
+              onChange={(e) => setDateSort(e.target.value as 'newest' | 'oldest')}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+            </select>
+          </div>
         </div>
       </div>
 

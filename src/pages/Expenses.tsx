@@ -13,38 +13,63 @@ import {
   TrendingDown,
   BarChart3,
   X,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
 import { Expense } from '../types.ts';
 import { format } from 'date-fns';
 
 export const Expenses: React.FC = () => {
-  const { expenses, addExpense, deleteExpense } = useStore();
+  const { expenses, addExpense, deleteExpense, products, profile } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
   const categories = ['All', 'Operations', 'Inventory', 'Marketing', 'Rent', 'Wages', 'Utilities', 'Other'];
 
+  const liveInventoryExpenses = useMemo(() => {
+    return products
+      .filter(p => p.stockLevel > 0)
+      .map(p => {
+        const amount = p.stockLevel * (p.costPrice || p.price);
+        return {
+          id: `live-inv-${p.id}`,
+          title: p.name,
+          amount: amount,
+          category: 'Inventory',
+          date: p.createdAt || Date.now(),
+          paymentMethod: 'Asset Stock',
+          notes: `Automatic dynamic inventory expense. ${p.stockLevel} units remaining. (SKU: ${p.sku || 'N/A'})`,
+          isLiveInventory: true,
+          productId: p.id,
+          updatedAt: p.createdAt || Date.now()
+        } as Expense;
+      });
+  }, [products]);
+
+  const allExpenses = useMemo(() => {
+    return [...expenses, ...liveInventoryExpenses];
+  }, [expenses, liveInventoryExpenses]);
+
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(e => {
+    return allExpenses.filter(e => {
       const matchesSearch = e.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || e.category === categoryFilter;
       return matchesSearch && matchesCategory;
     }).sort((a, b) => b.date - a.date);
-  }, [expenses, searchTerm, categoryFilter]);
+  }, [allExpenses, searchTerm, categoryFilter]);
 
   const stats = useMemo(() => {
-    const total = expenses.reduce((acc, e) => acc + e.amount, 0);
-    const thisMonth = expenses.filter(e => {
+    const total = allExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const thisMonth = allExpenses.filter(e => {
       const d = new Date(e.date);
       const now = new Date();
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).reduce((acc, e) => acc + e.amount, 0);
 
     return { total, thisMonth };
-  }, [expenses]);
+  }, [allExpenses]);
 
   const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -63,6 +88,8 @@ export const Expenses: React.FC = () => {
     setShowAddModal(false);
   };
 
+  const currSymbol = profile?.currency === 'INR' ? '₹' : (profile?.currency === 'USD' ? '$' : (profile?.currency || '₹'));
+
   return (
     <div className="p-6 space-y-8 max-w-[1600px] mx-auto">
       {/* Header & Stats */}
@@ -79,7 +106,7 @@ export const Expenses: React.FC = () => {
             </div>
             <div>
               <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Monthly spend</p>
-              <p className="text-xl font-black">${stats.thisMonth.toLocaleString()}</p>
+              <p className="text-xl font-black">{currSymbol}{stats.thisMonth.toLocaleString()}</p>
             </div>
           </div>
           <button 
@@ -143,11 +170,18 @@ export const Expenses: React.FC = () => {
                   </div>
                   <h3 className="text-xl font-bold">{exp.title}</h3>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="text-2xl font-black text-primary">-${exp.amount.toFixed(2)}</span>
-                  <span className="px-2 py-1 bg-white/5 rounded-lg text-[8px] font-bold uppercase text-muted tracking-widest border border-white/5">
-                    {exp.category}
-                  </span>
+                <div className="flex flex-col items-end gap-2 text-right">
+                  <span className="text-2xl font-black text-primary">-{currSymbol}{exp.amount.toFixed(2)}</span>
+                  <div className="flex items-center gap-1">
+                    {exp.isLiveInventory && (
+                      <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md text-[8px] font-black uppercase tracking-wider border border-emerald-500/20">
+                        Live Link
+                      </span>
+                    )}
+                    <span className="px-2 py-1 bg-white/5 rounded-lg text-[8px] font-bold uppercase text-muted tracking-widest border border-white/5">
+                      {exp.category}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -157,12 +191,19 @@ export const Expenses: React.FC = () => {
                   {exp.paymentMethod}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => deleteExpense(exp.id)}
-                    className="p-2 text-muted hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {exp.isLiveInventory ? (
+                    <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg flex items-center gap-1">
+                      <Lock size={10} />
+                      Auto Active
+                    </span>
+                  ) : (
+                    <button 
+                      onClick={() => deleteExpense(exp.id)}
+                      className="p-2 text-muted hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
               

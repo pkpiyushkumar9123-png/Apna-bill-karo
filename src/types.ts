@@ -117,6 +117,8 @@ export interface Expense {
   paymentMethod: string;
   notes?: string;
   updatedAt: number;
+  isLiveInventory?: boolean;
+  productId?: string;
 }
 
 export interface AppSettings {
