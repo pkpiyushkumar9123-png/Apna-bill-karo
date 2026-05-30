@@ -321,11 +321,7 @@ export const InvoiceEditor: React.FC = () => {
         let qrText = '';
         if (qrType === 'upi' && profile?.upiId) {
           const upiId = profile.upiId;
-          const payeeName = profile.name || 'Merchant';
-          const amt = totals.total.toFixed(2);
-          const note = `Invoice ${watchedNumber || 'Payment'}`;
-          const currency = profile.currency || 'INR';
-          qrText = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amt}&cu=${currency}&tn=${encodeURIComponent(note)}`;
+          qrText = `upi://pay?pa=${upiId}`;
         } else {
           const bankName = profile?.bankName || '';
           const bankAcc = profile?.bankAccount || '';

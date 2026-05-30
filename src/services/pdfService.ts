@@ -280,12 +280,8 @@ export const generateInvoicePDF = async (invoice: Invoice, profile: BusinessProf
 
   // Compute QR UPI payload
   let qrText = '';
-  const amt = invoice.total.toFixed(2);
-  const currency = invoice.currency || profile?.currency || 'USD';
   if (profile?.upiId) {
-    const payeeName = profile.name || 'Merchant';
-    const note = `Invoice ${invoice.number}`;
-    qrText = `upi://pay?pa=${profile.upiId}&pn=${encodeURIComponent(payeeName)}&am=${amt}&cu=${currency}&tn=${encodeURIComponent(note)}`;
+    qrText = `upi://pay?pa=${profile.upiId}`;
   }
   const hasQr = !!qrText;
 
