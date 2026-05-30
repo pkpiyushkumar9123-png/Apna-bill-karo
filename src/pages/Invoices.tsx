@@ -70,6 +70,41 @@ export const Invoices: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filteredInvoices.map(inv => inv.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleToggleSelect = (id: string, e: React.MouseEvent | React.ChangeEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkStatusUpdate = async (status: string) => {
+    for (const id of selectedIds) {
+      const inv = invoices.find(i => i.id === id);
+      if (inv) {
+        const newPaidAmount = status === 'paid' ? inv.total : status === 'draft' ? 0 : inv.paidAmount || 0;
+        await updateInvoice({ ...inv, status: status as any, paidAmount: newPaidAmount });
+      }
+    }
+    setSelectedIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of selectedIds) {
+      await deleteInvoice(id);
+    }
+    setSelectedIds([]);
+  };
 
   const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId);
   const selectedCustomer = customers.find(c => c.id === selectedInvoice?.customerId);
@@ -202,6 +237,14 @@ export const Invoices: React.FC = () => {
               <table className="w-full text-left border-separate border-spacing-0">
                 <thead>
                   <tr className="bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-muted/60">
+                    <th className="px-8 py-5 border-b border-white/5 w-12 text-center select-none" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={filteredInvoices.length > 0 && filteredInvoices.every(inv => selectedIds.includes(inv.id))}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 focus:outline-none w-4 h-4 cursor-pointer accent-primary"
+                      />
+                    </th>
                     <th className="px-8 py-5 border-b border-white/5">Ref / Identity</th>
                     <th className="px-8 py-5 border-b border-white/5">Pipeline Status</th>
                     <th className="px-8 py-5 border-b border-white/5">Schedule</th>
@@ -211,7 +254,19 @@ export const Invoices: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-white/[0.04] transition-all group relative cursor-pointer" onClick={() => setSelectedInvoiceId(inv.id)}>
+                    <tr 
+                      key={inv.id} 
+                      className={`hover:bg-white/[0.04] transition-all group relative cursor-pointer ${selectedIds.includes(inv.id) ? 'bg-primary/5 hover:bg-primary/5' : ''}`} 
+                      onClick={() => setSelectedInvoiceId(inv.id)}
+                    >
+                      <td className="px-8 py-8 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(inv.id)}
+                          onChange={(e) => handleToggleSelect(inv.id, e)}
+                          className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 focus:outline-none w-4 h-4 cursor-pointer accent-primary"
+                        />
+                      </td>
                       <td className="px-8 py-8">
                         <div className="flex items-center gap-5">
                           <div className="w-14 h-14 rounded-2xl bg-white/[0.03] flex items-center justify-center text-primary/50 border border-white/5 group-hover:border-primary/30 group-hover:text-primary transition-all shadow-inner">
@@ -334,9 +389,21 @@ export const Invoices: React.FC = () => {
             {/* Mobile Card View */}
             <div className="lg:hidden space-y-4">
               {filteredInvoices.map((inv) => (
-                <div key={inv.id} className="glass-card flex flex-col gap-4 group" onClick={() => setSelectedInvoiceId(inv.id)}>
+                <div 
+                  key={inv.id} 
+                  className={`glass-card flex flex-col gap-4 group transition-all duration-200 ${selectedIds.includes(inv.id) ? 'border-primary/40 bg-primary/[0.02]' : ''}`} 
+                  onClick={() => setSelectedInvoiceId(inv.id)}
+                >
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
+                      <div className="flex items-center mr-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(inv.id)}
+                          onChange={(e) => handleToggleSelect(inv.id, e)}
+                          className="rounded border-white/20 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 focus:outline-none w-4.5 h-4.5 cursor-pointer accent-primary"
+                        />
+                      </div>
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                         <FileText size={20} />
                       </div>
@@ -608,6 +675,72 @@ export const Invoices: React.FC = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Action Bar */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            className="fixed bottom-6 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 z-40 mx-auto w-[calc(100%-2rem)] max-w-4xl"
+          >
+            <div className="p-4 md:p-5 rounded-3xl border border-white/10 bg-neutral-950/95 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="w-10 h-10 rounded-2xl bg-primary/20 flex items-center justify-center text-primary font-black font-mono text-sm shadow-inner">
+                  {selectedIds.length}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black tracking-tight text-white uppercase tracking-widest">Invoices Selected</h4>
+                  <button 
+                    onClick={() => setSelectedIds([])} 
+                    className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest text-left mt-0.5"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+              
+              <div className="h-px w-full md:h-10 md:w-px bg-white/10" />
+              
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto md:justify-end">
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted/60 mr-1 hidden sm:inline">Set Status:</span>
+                <div className="flex flex-wrap gap-1.5 flex-1 sm:flex-initial">
+                  {['draft', 'pending', 'paid', 'overdue'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => handleBulkStatusUpdate(status)}
+                      className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all duration-300 ${
+                        status === 'paid' ? 'hover:bg-green-500/10 hover:text-green-500 border-green-500/20 text-white bg-white/5' : 
+                        status === 'pending' ? 'hover:bg-yellow-500/10 hover:text-yellow-500 border-yellow-500/20 text-white bg-white/5' : 
+                        status === 'overdue' ? 'hover:bg-red-500/10 hover:text-red-500 border-red-500/20 text-white bg-white/5' :
+                        'hover:bg-white/10 border-white/10 text-white bg-white/5'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="h-4 w-px bg-white/10 hidden sm:block mx-1" />
+                
+                <button
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete the ${selectedIds.length} selected invoices?`)) {
+                      handleBulkDelete();
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border border-red-500/30 text-red-500 hover:bg-red-500/10 bg-white/5 flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 transition-colors"
+                  title="Delete Selected"
+                >
+                  <Trash2 size={12} />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
