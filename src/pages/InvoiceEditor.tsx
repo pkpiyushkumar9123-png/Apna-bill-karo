@@ -1189,120 +1189,125 @@ export const InvoiceEditor: React.FC = () => {
               <div className="space-y-4 p-6 md:p-0">
                 {fields.map((field, index) => (
                   <React.Fragment key={field.id}>
-                    <div className="flex flex-col md:grid md:grid-cols-12 gap-4 items-start p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
-                      <div className="w-full md:col-span-4 space-y-2 relative">
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
-                        <div className="relative group/search">
-                           <input 
-                             {...register(`items.${index}.description` as const)} 
-                             placeholder="Enter service or product..."
-                             className="input-field w-full text-sm pl-10 h-11"
-                           />
-                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={14} />
-                           
-                           {/* Quick Product Results Dropdown */}
-                           <div className="absolute top-[calc(100%+8px)] left-0 w-full glass-card !p-2 z-[110] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-72 overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-primary/30 scale-95 group-focus-within/search:scale-100 origin-top backdrop-blur-3xl bg-surface/95">
-                              <div className="flex justify-between items-center px-3 py-1 border-b border-white/5 mb-1">
-                                 <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Select or Add Product</p>
-                                 <button 
-                                   type="button"
-                                   onMouseDown={() => {
-                                     setNewProduct({ name: watchedItems[index]?.description || '', price: 0, taxRate: 0 });
-                                     setShowQuickProduct({ index });
-                                   }}
-                                   className="text-[10px] font-black uppercase text-primary hover:underline"
-                                 >
-                                    + Create New
-                                  </button>
-                              </div>
-
-                              {showQuickProduct?.index === index ? (
-                                 <div className="p-3 space-y-3 bg-primary/5 rounded-xl border border-primary/20 m-1">
-                                    <input 
-                                      className="input-field w-full py-1.5 text-xs bg-surface/50" 
-                                      placeholder="Product Name" 
-                                      value={newProduct.name}
-                                      onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                                    />
-                                    <div className="flex gap-2">
-                                       <input 
-                                        type="number"
-                                        className="input-field w-full py-1.5 text-xs bg-surface/50" 
-                                        placeholder="Price" 
-                                        value={newProduct.price || ''}
-                                        onChange={e => setNewProduct({...newProduct, price: +e.target.value})}
-                                       />
-                                       <button 
-                                        type="button"
-                                        onMouseDown={() => handleQuickProduct(index)}
-                                        className="btn-primary px-4 py-1.5 text-[10px] font-bold uppercase transition-transform active:scale-95"
-                                       >
-                                          Save
-                                       </button>
-                                    </div>
-                                 </div>
-                              ) : products.length > 0 ? (
-                                 products.filter(p => {
-                                   const search = watchedItems[index]?.description?.toLowerCase() || '';
-                                   return p.name.toLowerCase().includes(search);
-                                 }).map(p => {
-                                   const availability = getProductAvailability(p.id);
-                                   return (
-                                    <button 
-                                      key={p.id}
-                                      type="button"
-                                      onMouseDown={() => {
-                                        setValue(`items.${index}.description`, p.name);
-                                        setValue(`items.${index}.productId`, p.id);
-                                        setValue(`items.${index}.price`, p.price);
-                                        setValue(`items.${index}.taxRate`, p.taxRate || 0);
-                                        
-                                        const avail = getProductAvailability(p.id);
-                                        if (avail < 1) {
-                                          setStockWarning({ name: p.name, needed: 1, available: avail });
-                                        }
-                                      }}
-                                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-primary/10 text-sm flex justify-between items-center group/item transition-colors border border-transparent hover:border-primary/20 mb-1"
-                                    >
-                                      <div className="flex flex-col gap-0.5">
-                                         <span className="font-bold">{p.name}</span>
-                                         <div className="flex items-center gap-2">
-                                            <div className={cn(
-                                              "w-1.5 h-1.5 rounded-full",
-                                              availability > 10 ? "bg-green-500" : availability > 0 ? "bg-orange-500" : "bg-red-500"
-                                            )} />
-                                            <span className="text-[9px] text-muted uppercase font-black tracking-widest opacity-60">
-                                              Stock: {availability} {p.unit}
-                                            </span>
-                                         </div>
-                                      </div>
-                                      <div className="flex flex-col items-end">
-                                        <span className="text-[10px] font-black font-mono text-muted group-hover/item:text-primary transition-colors">${p.price}</span>
-                                        {p.sku && <span className="text-[8px] text-muted/40 font-mono">{p.sku}</span>}
-                                      </div>
+                    <div className="flex flex-col gap-5 p-5 md:p-6 rounded-3xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition-all group animate-in fade-in slide-in-from-left-4 focus-within:z-50 relative focus-within:bg-white/[0.08] focus-within:border-primary/30 shadow-lg mb-4">
+                      
+                      {/* Row 1: Core Item Definition */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full items-start">
+                        <div className="w-full md:col-span-9 space-y-2 relative">
+                          <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Description / Product search</label>
+                          <div className="relative group/search">
+                             <input 
+                               {...register(`items.${index}.description` as const)} 
+                               placeholder="Enter service or product..."
+                               className="input-field w-full text-sm pl-10 h-11"
+                             />
+                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within/search:text-primary transition-colors" size={14} />
+                             
+                             {/* Quick Product Results Dropdown */}
+                             <div className="absolute top-[calc(100%+8px)] left-0 w-full glass-card !p-2 z-[110] opacity-0 invisible group-focus-within/search:opacity-100 group-focus-within/search:visible transition-all max-h-72 overflow-y-auto shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-primary/30 scale-95 group-focus-within/search:scale-100 origin-top backdrop-blur-3xl bg-surface/95">
+                                <div className="flex justify-between items-center px-3 py-1 border-b border-white/5 mb-1">
+                                   <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Select or Add Product</p>
+                                   <button 
+                                     type="button"
+                                     onMouseDown={() => {
+                                       setNewProduct({ name: watchedItems[index]?.description || '', price: 0, taxRate: 0 });
+                                       setShowQuickProduct({ index });
+                                     }}
+                                     className="text-[10px] font-black uppercase text-primary hover:underline"
+                                   >
+                                      + Create New
                                     </button>
-                                   );
-                                 })
-                              ) : (
-                                <p className="px-3 py-4 text-center text-[10px] font-black uppercase text-muted tracking-widest leading-relaxed">No products found in matrix.<br/>Start typing or use Quick Register.</p>
-                              )}
-                           </div>
+                                </div>
+
+                                {showQuickProduct?.index === index ? (
+                                   <div className="p-3 space-y-3 bg-primary/5 rounded-xl border border-primary/20 m-1">
+                                      <input 
+                                        className="input-field w-full py-1.5 text-xs bg-surface/50" 
+                                        placeholder="Product Name" 
+                                        value={newProduct.name}
+                                        onChange={e => setNewProduct({...newProduct, name: e.target.value})}
+                                      />
+                                      <div className="flex gap-2">
+                                         <input 
+                                          type="number"
+                                          className="input-field w-full py-1.5 text-xs bg-surface/50" 
+                                          placeholder="Price" 
+                                          value={newProduct.price || ''}
+                                          onChange={e => setNewProduct({...newProduct, price: +e.target.value})}
+                                         />
+                                         <button 
+                                          type="button"
+                                          onMouseDown={() => handleQuickProduct(index)}
+                                          className="btn-primary px-4 py-1.5 text-[10px] font-bold uppercase transition-transform active:scale-95"
+                                         >
+                                            Save
+                                         </button>
+                                      </div>
+                                   </div>
+                                ) : products.length > 0 ? (
+                                   products.filter(p => {
+                                     const search = watchedItems[index]?.description?.toLowerCase() || '';
+                                     return p.name.toLowerCase().includes(search);
+                                   }).map(p => {
+                                     const availability = getProductAvailability(p.id);
+                                     return (
+                                      <button 
+                                        key={p.id}
+                                        type="button"
+                                        onMouseDown={() => {
+                                          setValue(`items.${index}.description`, p.name);
+                                          setValue(`items.${index}.productId`, p.id);
+                                          setValue(`items.${index}.price`, p.price);
+                                          setValue(`items.${index}.taxRate`, p.taxRate || 0);
+                                          
+                                          const avail = getProductAvailability(p.id);
+                                          if (avail < 1) {
+                                            setStockWarning({ name: p.name, needed: 1, available: avail });
+                                          }
+                                        }}
+                                        className="w-full text-left px-4 py-3 rounded-xl hover:bg-primary/10 text-sm flex justify-between items-center group/item transition-colors border border-transparent hover:border-primary/20 mb-1"
+                                      >
+                                        <div className="flex flex-col gap-0.5">
+                                           <span className="font-bold">{p.name}</span>
+                                           <div className="flex items-center gap-2">
+                                              <div className={cn(
+                                                "w-1.5 h-1.5 rounded-full",
+                                                availability > 10 ? "bg-green-500" : availability > 0 ? "bg-orange-500" : "bg-red-500"
+                                              )} />
+                                              <span className="text-[9px] text-muted uppercase font-black tracking-widest opacity-60">
+                                                Stock: {availability} {p.unit}
+                                              </span>
+                                           </div>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                          <span className="text-[10px] font-black font-mono text-muted group-hover/item:text-primary transition-colors">${p.price}</span>
+                                          {p.sku && <span className="text-[8px] text-muted/40 font-mono">{p.sku}</span>}
+                                        </div>
+                                      </button>
+                                     );
+                                   })
+                                ) : (
+                                  <p className="px-3 py-4 text-center text-[10px] font-black uppercase text-muted tracking-widest leading-relaxed">No products found in matrix.<br/>Start typing or use Quick Register.</p>
+                                )}
+                             </div>
+                          </div>
+                        </div>
+
+                        {/* HSN/SAC Compliance Column */}
+                        <div className="w-full md:col-span-3 space-y-2">
+                          <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">HSN/SAC Code</label>
+                          <input 
+                            placeholder="HSN/SAC" 
+                            {...register(`items.${index}.hsnSac` as const)} 
+                            className="input-field w-full text-xs py-2 bg-white/[0.01] hover:bg-white/[0.03] transition-all font-mono h-11" 
+                          />
                         </div>
                       </div>
-                      
-                      {/* HSN/SAC Compliance Column */}
-                      <div className="w-full md:col-span-1 space-y-2">
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">HSN/SAC</label>
-                        <input 
-                          placeholder="Code" 
-                          {...register(`items.${index}.hsnSac` as const)} 
-                          className="input-field w-full text-xs py-2 bg-white/[0.01] hover:bg-white/[0.03] transition-all font-mono h-11" 
-                        />
-                      </div>
 
-                      <div className="w-full md:col-span-7 flex flex-col md:grid md:grid-cols-7 gap-4">
-                         <div className="md:col-span-1 space-y-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Quantity</label>
+                      {/* Row 2: Financial Computable variables inside a cohesive Box */}
+                      <div className="w-full bg-white/[0.02] border border-white/5 p-4 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Quantity</label>
                             <div className="relative group/qty">
                               <input 
                                 type="number"
@@ -1339,8 +1344,8 @@ export const InvoiceEditor: React.FC = () => {
                             </div>
                          </div>
                          
-                         <div className="md:col-span-2 space-y-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Unit Price</label>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Unit Price</label>
                             <div className="relative">
                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted text-xs font-bold">
                                  {activeCurrencySymbol}
@@ -1356,8 +1361,8 @@ export const InvoiceEditor: React.FC = () => {
                             </div>
                          </div>
 
-                         <div className="md:col-span-1 space-y-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1">Tax (%)</label>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Tax (%)</label>
                             <input 
                               type="number"
                               {...register(`items.${index}.taxRate` as const, { valueAsNumber: true })} 
@@ -1365,8 +1370,8 @@ export const InvoiceEditor: React.FC = () => {
                             />
                          </div>
 
-                         <div className="md:col-span-1 space-y-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest ml-1 text-green-500">Disc (%)</label>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1 text-green-500">Disc (%)</label>
                             <input 
                               type="number"
                               {...register(`items.${index}.discount` as const, { valueAsNumber: true })} 
@@ -1374,8 +1379,8 @@ export const InvoiceEditor: React.FC = () => {
                             />
                          </div>
 
-                         <div className="md:col-span-2 flex flex-col items-end justify-center pt-2">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1" style={{ color: watch('accentColor') }}>Line Total</label>
+                         <div className="col-span-2 md:col-span-1 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center pt-2 md:pt-0 gap-4 md:gap-1">
+                            <label className="text-[10px] font-black text-muted uppercase tracking-widest md:mb-1" style={{ color: watch('accentColor') }}>Line Total</label>
                             <div className="flex items-center gap-3">
                                <p className="text-sm font-black font-mono text-primary whitespace-nowrap" style={{ color: watch('accentColor') }}>
                                  {activeCurrencySymbol}
@@ -1389,22 +1394,22 @@ export const InvoiceEditor: React.FC = () => {
                                    return (afterDisc + (afterDisc * (tax / 100))).toFixed(2);
                                  })()}
                                </p>
-                               <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">
+                               <div className="flex gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all">
                                  <button 
                                    type="button" 
                                    onClick={() => append({ ...watchedItems[index], id: Math.random().toString(36).substr(2, 9) })}
-                                   className="p-1.5 rounded-lg hover:bg-primary/10 text-muted hover:text-primary transition-all"
+                                   className="p-1.5 rounded-lg hover:bg-primary/10 text-muted hover:text-primary transition-all cursor-pointer"
                                    title="Duplicate"
                                  >
-                                   <Copy size={14} />
+                                   <Copy size={13} />
                                  </button>
                                  <button 
                                    type="button" 
                                    onClick={() => remove(index)}
-                                   className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all"
+                                   className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-all cursor-pointer"
                                    title="Delete"
                                  >
-                                   <Trash2 size={14} />
+                                   <Trash2 size={13} />
                                  </button>
                                </div>
                             </div>
