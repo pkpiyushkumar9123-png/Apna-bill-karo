@@ -23,6 +23,7 @@ import {
   HelpCircle as InfoIcon
 } from 'lucide-react';
 import { useStore } from '../store/useStore.ts';
+import { WorkspaceService } from '../services/workspaceService.ts';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths, addMonths } from 'date-fns';
 import { 
   BarChart, 
@@ -42,15 +43,16 @@ import {
 
 export const Reports: React.FC = () => {
   const { invoices, expenses, profile } = useStore();
+  const workspaceConnected = useStore((s: any) => s.workspaceConnected);
   const settings = useStore((s: any) => s.settings) || { currencyDefault: 'INR' };
   const [activeTab, setActiveTab] = useState<'actuals' | 'sandbox' | 'tax_estimator'>('actuals');
 
-  const [taxYear, setTaxYear] = useState<'2025-26' | '2024-25'>('2025-26');
+  const [taxYear, setTaxYear] = useState<'2027-28' | '2026-27' | '2025-26' | '2024-25'>('2026-27');
   const [taxInterval, setTaxInterval] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4' | 'annual'>('annual');
 
   // Dynamic Tax Filing Estimator Sheet Calculations
   const taxEstimates = useMemo(() => {
-    const baseYear = taxYear === '2025-26' ? 2025 : 2024;
+    const baseYear = parseInt(taxYear.split('-')[0], 10);
     let startDate = new Date(baseYear, 3, 1).getTime(); // April 1st
     let endDate = new Date(baseYear + 1, 2, 31, 23, 59, 59).getTime(); // March 31st
 
@@ -138,7 +140,7 @@ export const Reports: React.FC = () => {
     };
   }, [invoices, expenses, taxYear, taxInterval]);
 
-  const downloadTaxCSV = () => {
+  const getTaxCSVContent = () => {
     const data = taxEstimates;
     const currency = settings?.currencyDefault || profile?.currency || 'INR';
 
@@ -175,16 +177,24 @@ export const Reports: React.FC = () => {
       ["DISCLAIMER: NovaBill compiled reports are provisions for informational purposes. Deliver directly to your professional accountant for validation."]
     ];
 
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+    return csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+  };
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `tax-sheet-summary-fy${taxYear}-${taxInterval}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadTaxCSV = () => {
+    try {
+      const csvContent = getTaxCSVContent();
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `tax-sheet-summary-fy${taxYear}-${taxInterval}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("CSV download failed", err);
+    }
   };
 
   // Slider State for Idea 3: Strategic Forecast Scenario Sandbox
@@ -813,7 +823,7 @@ export const Reports: React.FC = () => {
               {/* Controls */}
               <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <div className="flex bg-[#111214] p-1 rounded-xl border border-white/5 font-semibold text-[11px]">
-                  {(['2025-26', '2024-25'] as const).map(y => (
+                  {(['2027-28', '2026-27', '2025-26', '2024-25'] as const).map(y => (
                     <button
                       key={y}
                       type="button"
@@ -850,6 +860,30 @@ export const Reports: React.FC = () => {
                   <Download size={14} />
                   <span>Export Accountant Sheet</span>
                 </button>
+
+                {workspaceConnected && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const confirmSave = window.confirm(
+                        `Save report to workspace?\n\nThis will write "tax-sheet-summary-fy${taxYear}-${taxInterval}.csv" directly as a CSV spreadsheet into your connected folder/drive workspace. Proceed?`
+                      );
+                      if (!confirmSave) return;
+                      try {
+                        const csvContent = getTaxCSVContent();
+                        const fileName = `tax-sheet-summary-fy${taxYear}-${taxInterval}.csv`;
+                        await WorkspaceService.saveFile(fileName, csvContent);
+                        alert(`Successfully saved "${fileName}" inside your connected business storage workspace!`);
+                      } catch (err: any) {
+                        alert(`Failed to save report: ${err.message || err}`);
+                      }
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] text-black px-4 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <FileSpreadsheet size={14} className="text-black" />
+                    <span>Save to Workspace</span>
+                  </button>
+                )}
               </div>
             </div>
 
